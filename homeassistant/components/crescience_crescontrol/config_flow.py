@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import http.client
 import logging
-import os
 import socket
 from typing import Any
 
+import requests
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -60,8 +60,19 @@ class PlaceholderHub:
 
     async def ping(self) -> bool:
         """Ping the device."""
-        test_ok = os.system("ping -c 1 " + self.host)
-        return test_ok == 0
+        # test_ok = os.system("ping -c 1 " + self.host)
+        get = requests.get(f"http://{self.host}", timeout=5)
+
+        return get.status_code == 200
+        # try:
+        #     fp = urllib.request.urlopen(f"http://{self.host}")
+        #     mybytes = fp.read()
+        #     mystr = mybytes.decode("utf8")
+        #     fp.close()
+        #     return True
+        # except Exception:
+        #     return False
+        # return test_ok == 0
 
     def tryConnect(self) -> bool:
         """Check if device is a CresControl."""
@@ -84,7 +95,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     hub = PlaceholderHub(data["host"])
 
-    if not await hub.ping():
+    if not await hass.async_add_executor_job(hub.ping):
         raise CannotConnect
 
     if not await hass.async_add_executor_job(hub.tryConnect):
