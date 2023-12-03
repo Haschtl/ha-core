@@ -1,0 +1,4 @@
+send_message:
+  fields:
+    message:
+      example: "out-a:voltage=0;"

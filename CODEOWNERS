@@ -235,6 +235,8 @@ build.json @home-assistant/supervisor
 /tests/components/cover/ @home-assistant/core
 /homeassistant/components/cpuspeed/ @fabaff
 /tests/components/cpuspeed/ @fabaff
+/homeassistant/components/crescience_crescontrol/ @Haschtl
+/tests/components/crescience_crescontrol/ @Haschtl
 /homeassistant/components/crownstone/ @Crownstone @RicArch97
 /tests/components/crownstone/ @Crownstone @RicArch97
 /homeassistant/components/cups/ @fabaff

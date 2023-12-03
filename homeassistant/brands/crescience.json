@@ -1,0 +1,5 @@
+{
+  "domain": "crescience",
+  "name": "Crescience",
+  "integrations": ["crescience_crescontrol"]
+}

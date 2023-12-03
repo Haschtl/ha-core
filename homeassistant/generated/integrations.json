@@ -946,6 +946,17 @@
       "config_flow": true,
       "iot_class": "local_push"
     },
+    "crescience": {
+      "name": "Crescience",
+      "integrations": {
+        "crescience_crescontrol": {
+          "integration_type": "device",
+          "config_flow": true,
+          "iot_class": "local_push",
+          "name": "Crescience CresControl"
+        }
+      }
+    },
     "cribl": {
       "name": "Cribl",
       "integration_type": "virtual",
