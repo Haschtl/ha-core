@@ -56,6 +56,12 @@ class CresControlEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         self.update()
+        if self.path == "connection_status":
+            self._device.set_online_status_entity(self)  # type: ignore[arg-type]
+            self._device.update_status()
+        if self.path == "connected":
+            self._device.set_connected_entity(self)  # type: ignore[arg-type]
+            self._device.update_status()
 
     def send(self, msg: str):
         """Send a message to this entity."""

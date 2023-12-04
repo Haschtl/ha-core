@@ -56,15 +56,12 @@ class CresControlSensor(CresControlEntity, SensorEntity):
     ) -> None:
         """Create new CresControl Sensor Entity."""
         super().__init__(hass, device, path, config)
-        if path == "connection_status":
-            self._device.set_online_status_entity(self)
-        else:
-            self._attr_state_class = config["sensor_class"]
-            self._attr_device_class = path2sensor_device_class(path)
-            # self._attr_entity_registry_enabled_default = not config["hidden"]
-            # self._attr_entity_registry_enabled_default = path2default_enabled(path)
-            self._attr_native_unit_of_measurement = path2unit(path)
-            # self._attr_icon = path2icon(path)
+        self._attr_state_class = config["sensor_class"]
+        self._attr_device_class = path2sensor_device_class(path)
+        # self._attr_entity_registry_enabled_default = not config["hidden"]
+        # self._attr_entity_registry_enabled_default = path2default_enabled(path)
+        self._attr_native_unit_of_measurement = path2unit(path)
+        # self._attr_icon = path2icon(path)
 
     def update_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""

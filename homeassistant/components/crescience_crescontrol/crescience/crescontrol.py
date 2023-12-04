@@ -68,7 +68,7 @@ class CresControl(WebsocketClient):
         self.connection_status_entity: SensorEntity | None = None
         self.dynamicEntities: dict[str, SensorEntity] = {}
         self.entity_update_callbacks: list[Callable[[str, Any], bool]] = []
-        # self.status_entity_id = DOMAIN + ".status_" + uid.replace("-", "_")
+        self.status_entity_id = DOMAIN + ".status_" + uid.replace("-", "_")
         self.async_add_entities_cb = async_add_entities
 
     @property
@@ -163,28 +163,36 @@ class CresControl(WebsocketClient):
         _LOGGER.warning("Connection with %s error", self.uid)
         self.set_status("error")
 
+    def update_status(self):
+        """Update the status entities."""
+        state = self.state
+        if self._error_reason is not None:
+            self.set_status("error")
+        elif state == ConnectionState.CONNECTED:
+            self.set_status("connected")
+        elif state == ConnectionState.DISCONNECTED:
+            self.set_status("closed")
+
     def set_status(self, value: str):
         """Update the connection status entities."""  #
-        # !!! status disabled
-        return
-        # if self.connection_status_entity is not None:
-        #     self.connection_status_entity._attr_native_value = str(value)  # pylint: disable=protected-access
-        #     # self.connection_status_entity.update_main_value(value)
-        #     self.connection_status_entity.schedule_update_ha_state()
-        # else:
-        #     _LOGGER.error(
-        #         "Cannot set device status to '%s', no connection-status-entity registered",
-        #         value,
-        #     )
-        # if self.connected_entity is not None:
-        #     self.connected_entity._attr_is_on = value in ("connected")  # pylint: disable=protected-access
-        #     # self.connected_entity.update_main_value(value in ("connected"))
-        #     self.connected_entity.schedule_update_ha_state()
-        # else:
-        #     _LOGGER.error(
-        #         "Cannot set device status to '%s', no connected-entity registered",
-        #         value,
-        #     )
+        if self.connection_status_entity is not None:
+            self.connection_status_entity._attr_native_value = str(value)  # pylint: disable=protected-access
+            # self.connection_status_entity.update_main_value(value)
+            self.connection_status_entity.schedule_update_ha_state()
+        else:
+            _LOGGER.error(
+                "Cannot set device status to '%s', no connection-status-entity registered",
+                value,
+            )
+        if self.connected_entity is not None:
+            self.connected_entity._attr_is_on = value in ("connected")  # pylint: disable=protected-access
+            # self.connected_entity.update_main_value(value in ("connected"))
+            self.connected_entity.schedule_update_ha_state()
+        else:
+            _LOGGER.error(
+                "Cannot set device status to '%s', no connected-entity registered",
+                value,
+            )
         # self.hass.states.async_set(self.status_entity_id, "error")
 
     def createDynamicSensorEntity(self, path: str, initValue: Any):

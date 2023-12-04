@@ -29,7 +29,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "custom",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "connection_status": {
             "type": Platform.SENSOR,
@@ -515,7 +515,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "user-button:single-press-command": {
             "type": Platform.TEXT,
@@ -851,7 +851,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "wifi:incognito:enabled": {
             "type": Platform.SWITCH,
@@ -875,13 +875,13 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "websocket:remote:authenticated": {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "websocket:remote:uid": {
             "type": Platform.TEXT,
@@ -953,7 +953,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "user:name": {
             "type": Platform.TEXT,
@@ -971,7 +971,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "firmware:automatic-updates-enabled": {
             "type": Platform.SWITCH,
@@ -1043,7 +1043,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BINARY_SENSOR,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
+            "sensor_class": SensorStateClass.MEASUREMENT,
         },
         "system:heap:size": {
             "type": Platform.SENSOR,

@@ -50,12 +50,8 @@ class CresControlBinarySensor(CresControlEntity, BinarySensorEntity):
     ) -> None:
         """Create new CresControl Binary Entity."""
         super().__init__(hass, device, path, config)
-
-        if path == "connected":
-            self._device.set_connected_entity(self)
-        else:
-            self._attr_state_class = "measurement"
-            self._attr_device_class = path2binary_sensor_device_class(path)
+        self._attr_state_class = config["sensor_class"]
+        self._attr_device_class = path2binary_sensor_device_class(path)
 
     def update_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""

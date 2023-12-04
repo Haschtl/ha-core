@@ -439,9 +439,12 @@ def convertAnyType(data: Any) -> None | float | str | dict:
         except json.decoder.JSONDecodeError:
             try:
                 return ast.literal_eval(data)
-            except NameError:
-                return data
-            except SyntaxError:
+            except (SyntaxError, NameError):
+                # if isinstance(data, str):
+                #     if data.startswith('"'):
+                #         return data[1:-1]
+                #     if data.startswith("\\"):
+                #         return data[2:-2]
                 return data
 
 

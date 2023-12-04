@@ -1,6 +1,5 @@
 """Crescience CresControl local-connection integration."""
 # Fixen:
-# Connected-state funktioniert nicht
 # Wie asynchrone Entities?
 
 # Update device info version
