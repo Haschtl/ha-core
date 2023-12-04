@@ -7,8 +7,10 @@ import aiohttp
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import EntityPlatform
 
 # from homeassistant.core import HomeAssistant, callback
 # from homeassistant.helpers import entity_registry as ent_reg
@@ -48,10 +50,10 @@ class CresControl(WebsocketClient):
     def __init__(
         self,
         hass: HomeAssistant,
+        config: ConfigEntry,
         host: str,
         uid: str,
         tag: str | None,
-        async_add_entities: Callable,
         callback: Callable[
             [ConnectionMessageType, str | None, ConnectionErrorReason | None], None
         ]
@@ -64,12 +66,12 @@ class CresControl(WebsocketClient):
         self.tag = tag
         self.messageQueue: list[str] = []
         self.hass = hass
+        self._config = config
         self.connected_entity: BinarySensorEntity | None = None
         self.connection_status_entity: SensorEntity | None = None
         self.dynamicEntities: dict[str, SensorEntity] = {}
         self.entity_update_callbacks: list[Callable[[str, Any], bool]] = []
         self.status_entity_id = DOMAIN + ".status_" + uid.replace("-", "_")
-        self.async_add_entities_cb = async_add_entities
 
     @property
     def available(self):
@@ -99,15 +101,11 @@ class CresControl(WebsocketClient):
             path,
         )
         # entity_id = makeEntityId(self.uid, path)
-        if represents_number(value):
-            if path in self.dynamicEntities:
+        if path in self.dynamicEntities:
+            if represents_number(value):
                 self.dynamicEntities[path]._attr_native_value = float(value)  # pylint: disable=protected-access
-                # self.dynamicEntities[path].update_main_value(value)
-                self.dynamicEntities[path].schedule_update_ha_state()
             else:
-                self.createDynamicSensorEntity(path, value)
-        elif path in self.dynamicEntities:
-            self.dynamicEntities[path]._attr_native_value = str(value)  # pylint: disable=protected-access
+                self.dynamicEntities[path]._attr_native_value = str(value)  # pylint: disable=protected-access
             # self.dynamicEntities[path].update_main_value(value)
             self.dynamicEntities[path].schedule_update_ha_state()
         else:
@@ -135,8 +133,8 @@ class CresControl(WebsocketClient):
                     #     handled = True
                     if not handled:
                         # !!! dynamic disabled
-                        pass
-                        # handled = self._received_dynamic_entity(path, msg.returns[idx])
+                        # pass
+                        handled = self._received_dynamic_entity(path, msg.returns[idx])
 
     # @callback
     async def on_close(self, *args):
@@ -221,9 +219,18 @@ class CresControl(WebsocketClient):
         # sensor.entity_id = sensor._attr_unique_id or ""
         # entity_registry = ent_reg.async_get(self.hass)
         sensor.update_main_value(initValue)
-        sensor.schedule_update_ha_state()
+        sensor._attr_entity_registry_enabled_default = True  # pylint: disable=protected-access
+        self.hass.async_add_job(self._platform.async_add_entities([sensor]))
+        # sensor.schedule_update_ha_state()
         self.dynamicEntities[path] = sensor
-        self.async_add_entities_cb([sensor])
+
+    @property
+    def _platform(self):
+        entity_component = self.hass.data["sensor"]  # EntityComponent for sensor
+        entity_platform: EntityPlatform = entity_component._platforms[  # pylint: disable=protected-access
+            self._config.entry_id
+        ]
+        return entity_platform
 
     # @callback
     def register_update(self, cb: Callable[[str, Any], bool]):

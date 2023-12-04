@@ -1,7 +1,4 @@
 """Crescience CresControl local-connection integration."""
-# Fixen:
-# Wie asynchrone Entities?
-
 # Update device info version
 # extra device-Sachen: system:cpu-id, version
 # register services like send_message or system:update
@@ -13,14 +10,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity import Entity
 
 # from homeassistant.helpers.typing import ConfigType
 # from homeassistant.helpers.discovery import async_load_platform
@@ -44,13 +39,6 @@ PLATFORMS = frozenset(
 )
 
 
-def UNDEFINED_async_add_entities(
-    new_entities: Iterable[Entity], update_before_add: bool = False
-):
-    """Add entities to hass dynamically."""
-    _LOGGER.error("Cannot add entities dynamically", extra={"list": new_entities})
-
-
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     """Crescontrol-Entry represents a connection to one CresControl device."""
     # Data that you want to share with your platforms
@@ -69,11 +57,10 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     device = CresControl(
         hass,
+        config,
         host,
         uid,
         tag,
-        UNDEFINED_async_add_entities,
-        # cresnet_websocket_callback,
         None,
         session,
     )
