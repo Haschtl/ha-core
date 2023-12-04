@@ -126,7 +126,7 @@ class WebsocketClient:
 
                     if message.type == aiohttp.WSMsgType.TEXT:
                         await self._callback(
-                            ConnectionMessageType.TEXT, str(message), None, None
+                            ConnectionMessageType.TEXT, str(message.data), None, None
                         )
 
                     elif message.type == aiohttp.WSMsgType.CLOSED:

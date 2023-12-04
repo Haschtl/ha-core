@@ -59,7 +59,7 @@ class CresControlSensor(CresControlEntity, SensorEntity):
         if path == "connection_status":
             self._device.set_online_status_entity(self)
         else:
-            self._attr_state_class = "measurement"
+            self._attr_state_class = config["sensor_class"]
             self._attr_device_class = path2sensor_device_class(path)
             # self._attr_entity_registry_enabled_default = not config["hidden"]
             # self._attr_entity_registry_enabled_default = path2default_enabled(path)

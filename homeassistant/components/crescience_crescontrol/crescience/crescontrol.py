@@ -201,7 +201,12 @@ class CresControl(WebsocketClient):
             self.hass,
             self,
             path,
-            {"type": Platform.SENSOR, "variant": "simple", "category": None},
+            {
+                "type": Platform.SENSOR,
+                "variant": "simple",
+                "category": None,
+                "sensor_class": None,
+            },
         )
         # sensor.add_to_platform_start(self.hass)
         # sensor.hass = self.hass

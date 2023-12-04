@@ -1,8 +1,11 @@
 """Crescience CresControl local-connection integration."""
+# Fixen:
+# Connected-state funktioniert nicht
+# Wie asynchrone Entities?
+
 # Update device info version
 # extra device-Sachen: system:cpu-id, version
 # register services like send_message or system:update
-# Wie asynchrone Entities?
 # Bei Verbindungsabbruch, erneut versuchen
 # register intents for Speech
 # translations
@@ -108,4 +111,11 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     """Unload a config entry."""
     uid = config_entry.data.get("uid")
     hass.data[DOMAIN]["devices"][uid].close()
-    return True
+
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
+
+    hass.data[DOMAIN]["devices"].pop(uid)
+
+    return unload_ok

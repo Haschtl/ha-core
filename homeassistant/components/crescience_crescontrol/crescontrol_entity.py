@@ -98,8 +98,8 @@ class CresControlEntity(Entity):
     @callback
     def update(self):
         """Request the entity data from the device."""
-        if not self.enabled:
-            return
+        # if not self.enabled:
+        #     return
         if self._config["variant"] == "simple":
             # if queue:
             #     self._device.message_queue.append(self.path)
