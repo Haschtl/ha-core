@@ -34,8 +34,9 @@ async def async_setup_entry(
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.NUMBER:
             # and entity_key in extra_sensors:
-            sensor = CresControlNumber(device, entity_key, config)
+            sensor = CresControlNumber(hass, device, entity_key, config)
             sensors.append(sensor)
+    # await hass.async_add_executor_job(create_library_sensors)
     async_add_entities(sensors)
 
 
@@ -43,10 +44,14 @@ class CresControlNumber(CresControlEntity, NumberEntity):
     """CresControl Number Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Number Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
         self._attr_native_value = 0
         self._attr_device_class = path2number_device_class(path)
         # self._attr_entity_registry_enabled_default = path2default_enabled(path)

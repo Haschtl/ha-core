@@ -2,7 +2,7 @@
 import logging
 from typing import Any
 
-# from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
@@ -22,10 +22,13 @@ class CresControlEntity(Entity):
     _attr_should_poll = False
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Initialize the crescontrol entity."""
-        # super().__init__()
         self._device = device
         self._config = config
         self._device.register_update(self.update_state)
@@ -38,17 +41,27 @@ class CresControlEntity(Entity):
         self._attr_name = path2nice_name(path)
         # self._attr_unique_id = f"{DOMAIN}.{self.uid}_{path}"
         self._attr_unique_id = makeEntityId(self.uid, path)
+        self._attr_translation_key = self.uid
+        # self.hass = hass
         # if self.enabled and self._config["variant"] == "simple":
-        self.pull()
+        # if self.enabled:
+        #     self.pull(hass)
+        # hass.loop.create_task(self.pull())
 
-    @property
-    def device(self):
-        """CresControl connection object."""
-        return self._device
+    # @property
+    # def device(self):
+    #     """CresControl connection object."""
+    #     return self._device
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        self.update()
 
     def send(self, msg: str):
         """Send a message to this entity."""
-        self.device.send(f"{self.path}:{msg}")
+        # self._device.send(f"{self.path}:{msg}")
+        self.hass.add_job(self._device.send(f"{self.path}:{msg}"))
+        # self.hass.loop.create_task(self._device.send(f"{self.path}:{msg}"))
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -59,7 +72,7 @@ class CresControlEntity(Entity):
                 (DOMAIN, self.uid)
             },
             name=self.uid,
-            # name=self.device.tag,
+            # name=self._device.tag,
             manufacturer="Crescience",
             model="CresControl V1",
             # sw_version=self.light.swversion,
@@ -82,13 +95,27 @@ class CresControlEntity(Entity):
     #         else self._device_name
     #     )
 
-    # @callback
-    def pull(self):
+    @callback
+    def update(self):
         """Request the entity data from the device."""
-        # if self._config["variant"] == "simple":
-        #     self._device.send(self.path)
-        # else:
-        #     self.pull_custom()
+        if not self.enabled:
+            return
+        if self._config["variant"] == "simple":
+            # if queue:
+            #     self._device.message_queue.append(self.path)
+            # else:
+            # if hass is not None:
+            #     hass.add_job(self._device.send(self.path))
+            if self.hass is not None:
+                self.hass.add_job(self._device.send(self.path))
+            else:
+                _LOGGER.warning(
+                    "Entity %s not initialized. Message is added to queue", self.uid
+                )
+                self._device.message_queue.append(self.path)
+        # self.hass.loop.create_task(self._device.send(self.path))
+        else:
+            self.pull_custom()
 
     def pull_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
@@ -116,7 +143,7 @@ class CresControlEntity(Entity):
     # @callback
     def update_state(self, path: str, value: Any):
         """Update-routine for CresControl entities."""
-        assert self.entity_id is not None
+        # assert self.entity_id is not None
         if path.startswith(self.path):
             try:
                 if self._config["variant"] == "simple":
@@ -140,11 +167,11 @@ class CresControlEntity(Entity):
             #         path,
             #         value,
             #     )
-            if handled:
+            if handled and self.enabled:
                 try:
-                    pass
-                    # self.schedule_update_ha_state()
+                    self.schedule_update_ha_state()
                 except (RuntimeError, AttributeError):
+                    # except Exception:
                     _LOGGER.exception(
                         "Entity %s update_state failed path = %s, value = %s",
                         self.entity_id,

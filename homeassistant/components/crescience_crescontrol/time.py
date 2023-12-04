@@ -35,7 +35,7 @@ async def async_setup_entry(
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.TIME:
             # and entity_key in extra_sensors:
-            sensor = CresControlTime(device, entity_key, config)
+            sensor = CresControlTime(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -44,10 +44,14 @@ class CresControlTime(CresControlEntity, TimeEntity):
     """CresControl Time Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Time Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
         self._attr_native_value = time(0, 0, 0)
 
     def update_main_value(self, value: Any) -> bool:

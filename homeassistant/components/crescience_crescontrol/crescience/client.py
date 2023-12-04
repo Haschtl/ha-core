@@ -1,185 +1,300 @@
 #!/usr/local/bin/python3
 """Simple websocket-client wrapper."""
-# Logging configuration
-import logging as log
-import ssl
-from threading import Thread
-from typing import Union
+import asyncio
+from collections.abc import Callable
+from enum import IntEnum, StrEnum
+import logging
+from typing import Literal, Union
 
-import websocket
+import aiohttp
 
 from .message import Message, ParseError
 
-log.basicConfig(level=log.INFO)
-_LOGGER = log.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+_LOGGER = logging.getLogger(__name__)
+
+MAX_FAILED_ATTEMPTS = 5
 
 
-DEBUG = False
+class ConnectionState(StrEnum):
+    """State of the Websocket connection."""
+
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
+    STARTING = "starting"
+    STOPPED = "stopped"
+
+
+class ConnectionMessageType(IntEnum):
+    """Message type for websocket callback."""
+
+    # websocket spec types
+    # CONTINUATION = 0x0
+    TEXT = 0x1
+    BINARY = 0x2
+    # PING = 0x9
+    # PONG = 0xA
+    # CLOSE = 0x8
+
+    # aiohttp specific types
+    # CLOSING = 0x100
+    CLOSED = 0x101
+    ERROR = 0x102
+    OPEN = 0x105
+
+
+class ConnectionErrorReason(StrEnum):
+    """Error reasons of the Websocket connection."""
+
+    ERROR_AUTH_FAILURE = "Authorization failure"
+    ERROR_TOO_MANY_RETRIES = "Too many retries"
+    ERROR_UNKNOWN = "Unknown"
 
 
 class WebsocketClient:
-    """A Websocket-Client, which fits to CresNet clients.
-
-    Attributes:
-        .run
-
-    Functions:
-        .start()                    Start the socket
-        .stop()                     Stop the socket
-        .send(msg, clientID)        Send string to server
-
-    Callbacks:
-        .received(msg)              Called, if message received
-        .on_error(error)             Called on error
-        .on_close()                  Called, after connection is closed
-        .on_open()                   Called, after connection is opened
-
-    Args:
-        host (str): Host-Adresse of server.
-            E.g. '0.0.0.0' for network, '127.0.0.1' for local
-        port (int): Port
-        password (str): Password used for AES-encryption
-        use_ssl (bool): If true, only ssl-connection is accepted
-    """
+    """A Websocket-Client, which fits to CresNet clients."""
 
     def __init__(
         self,
-        host: Union[None, str] = None,
+        host: str,
         port: int = 80,
         password: Union[str, None] = None,
-        use_ssl: bool = False,
+        verify_ssl: bool = False,
+        callback: Callable[
+            [ConnectionMessageType, str | None, ConnectionErrorReason | None], None
+        ]
+        | None = None,
+        session: aiohttp.ClientSession | None = None,
     ) -> None:
         """Create a new Websocket client."""
-        self.run = False
-        self.runner: Thread | None = None
-        self.ws: websocket.WebSocketApp | None = None
+        self.session = session or aiohttp.ClientSession()
         self.port = port
         self.host = host
-        self.use_ssl = use_ssl
+        self.callback = callback
+        self.ws_client: aiohttp.ClientWebSocketResponse | None = None
+        self.message_queue: list[str] = []
+        self._ssl: Literal[False] | None = False if verify_ssl is False else None
+        self._state: ConnectionState = ConnectionState.DISCONNECTED
+        self.failed_attempts = 0
+        self._error_reason: ConnectionErrorReason | None = None
 
-        # if isinstance(self.host, str) and self.host != "":
-        #     self.start(host)
-
-    def start(
-        self,
-        host: Union[None, str] = None,
-        port: Union[int, None] = None,
-        use_ssl: Union[bool, None] = None,
-    ):
-        """Start the websocket connection."""
-        if self.run:
-            return
-        if host is not None and isinstance(host, str):
-            self.host = host
-        if port is not None and isinstance(port, int):
-            self.port = port
-        if use_ssl is not None and isinstance(host, bool):
-            self.use_ssl = use_ssl
-
-        if self.use_ssl:
+    @property
+    def uri(self):
+        """Websocket connection URI."""
+        if self._ssl:
             prefix = "wss://"
         else:
             prefix = "ws://"
+        return prefix + str(self.host) + ":" + str(self.port)
 
-        _LOGGER.info("Starting connection with %s%s:%s", prefix, self.host, self.port)
+    @property
+    def state(self):
+        """Return the current state."""
+        return self._state
 
-        websocket.enableTrace(False)
-        self.ws = websocket.WebSocketApp(
-            prefix + str(self.host) + ":" + str(self.port),
-            on_message=self.__received,
-            on_error=self.__on_error,
-            on_close=self.__on_close,
-        )
-        self.ws.on_open = self.__on_open
-        if self.use_ssl:
-            sslopt = {"sslopt": {"cert_reqs": ssl.CERT_NONE}}
+    @state.setter
+    def state(self, value: ConnectionState):
+        """Set the state."""
+        self._state = value
+        _LOGGER.debug("Websocket %s", value)
+        if value in (
+            ConnectionState.DISCONNECTED,
+            ConnectionState.STARTING,
+            ConnectionState.STOPPED,
+        ):
+            self.ws_client = None
+        self._error_reason = None
+
+    async def running(self):
+        """Open a persistent websocket connection and act on events."""
+        self.state = ConnectionState.STARTING
+
+        try:
+            async with self.session.ws_connect(
+                self.uri, heartbeat=15, ssl=self._ssl
+            ) as ws_client:
+                if self.ws_client is None:
+                    self.ws_client = ws_client
+                if self.state != ConnectionState.CONNECTED:
+                    self.state = ConnectionState.CONNECTED
+                    await self._callback(ConnectionMessageType.OPEN, None, None, None)
+                self.failed_attempts = 0
+
+                async for message in ws_client:
+                    if self.state == ConnectionState.STOPPED:
+                        break
+
+                    if message.type == aiohttp.WSMsgType.TEXT:
+                        await self._callback(
+                            ConnectionMessageType.TEXT, str(message), None, None
+                        )
+
+                    elif message.type == aiohttp.WSMsgType.CLOSED:
+                        _LOGGER.warning("AIOHTTP websocket connection closed")
+                        await self._callback(
+                            ConnectionMessageType.CLOSED, None, None, None
+                        )
+                        break
+
+                    elif message.type == aiohttp.WSMsgType.ERROR:
+                        _LOGGER.error("AIOHTTP websocket error")
+                        await self._callback(
+                            ConnectionMessageType.ERROR,
+                            None,
+                            ConnectionErrorReason.ERROR_UNKNOWN,
+                            "AIOHTTP websocket error",
+                        )
+                        break
+
+        except aiohttp.ClientResponseError as error:
+            if error.code == 401:
+                _LOGGER.error("Credentials rejected: %s", error)
+                self._error_reason = ConnectionErrorReason.ERROR_AUTH_FAILURE
+                await self._callback(
+                    ConnectionMessageType.ERROR,
+                    None,
+                    self._error_reason,
+                    f"Credentials rejected: {error}",
+                )
+            else:
+                _LOGGER.error("Unexpected response received: %s", error)
+                self._error_reason = ConnectionErrorReason.ERROR_UNKNOWN
+                await self._callback(
+                    ConnectionMessageType.ERROR,
+                    None,
+                    self._error_reason,
+                    f"Unexpected response received: {error}",
+                )
+            self.state = ConnectionState.STOPPED
+        except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as error:
+            if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                self._error_reason = ConnectionErrorReason.ERROR_TOO_MANY_RETRIES
+                self.state = ConnectionState.STOPPED
+                await self._callback(
+                    ConnectionMessageType.ERROR,
+                    None,
+                    self._error_reason,
+                    f"Websocket connection timeout: {error}",
+                )
+            elif self.state != ConnectionState.STOPPED:
+                retry_delay = min(2 ** (self.failed_attempts - 1) * 30, 300)
+                self.failed_attempts += 1
+                _LOGGER.error(
+                    "Websocket connection failed, retrying in %ds: %s",
+                    retry_delay,
+                    error,
+                )
+                self.state = ConnectionState.DISCONNECTED
+                await asyncio.sleep(retry_delay)
+        except Exception as error:  # pylint: disable=broad-except
+            if self.state != ConnectionState.STOPPED:
+                _LOGGER.exception("Unexpected exception occurred: %s", error)
+                self._error_reason = ConnectionErrorReason.ERROR_UNKNOWN
+                self.state = ConnectionState.STOPPED
+                await self._callback(
+                    ConnectionMessageType.ERROR,
+                    None,
+                    self._error_reason,
+                    f"Unexpected exception occurred: {error}",
+                )
         else:
-            sslopt = {}
-        self.runner = Thread(target=self.ws.run_forever, kwargs=sslopt)
-        # self.runner.daemon = True
-        self.runner.daemon = False
-        self.runner.start()
+            if self.state != ConnectionState.STOPPED:
+                self.state = ConnectionState.DISCONNECTED
+                await self._callback(ConnectionMessageType.CLOSED, None, None, None)
 
-    def stop(self):
-        """Stop the websocket connection."""
-        if self.ws is None:
-            return
-        self.run = False
-        self.ws.keep_running = False
-        self.runner = None
-        self.ws = None
+                await asyncio.sleep(5)
 
-    def send(self, msg: str):
+    async def _callback(
+        self,
+        msg_type: ConnectionMessageType,
+        msg: str | None,
+        error: ConnectionErrorReason | None,
+        error_info: str | None,
+    ):
+        if self.callback:
+            self.callback(msg_type, msg, error)
+        elif msg_type == ConnectionMessageType.ERROR:
+            assert error_info is not None
+            await self.__on_error(error_info)
+        elif msg_type == ConnectionMessageType.TEXT:
+            assert msg is not None
+            await self.__received(msg)
+        elif msg_type == ConnectionMessageType.CLOSED:
+            await self.__on_close()
+        elif msg_type == ConnectionMessageType.OPEN:
+            await self.__on_open()
+
+    async def listen(self):
+        """Close the listening websocket."""
+        self.failed_attempts = 0
+        while self.state != ConnectionState.STOPPED:
+            await self.running()
+
+    def start(self):
+        """Start synchron listening."""
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.listen())
+
+    def close(self):
+        """Close the listening websocket."""
+        self.state = ConnectionState.STOPPED
+
+    async def _send_queue(self):
+        if len(self.message_queue) > 0 and self.ws_client:
+            for m in self.message_queue:
+                await self.ws_client.send_str(m)
+            self.message_queue = []
+
+    async def send(self, msg: str):
         """Send a message to the host."""
-        if self.ws is None:
-            return
-        # if self.crypto is not None:
-        #     msg = self.crypto.encrypt(msg)
+        if self.state != ConnectionState.CONNECTED or self.ws_client is None:
+            self.message_queue.append(msg)
+            _LOGGER.warning(
+                "Cannot send message. Websocket connection not open. Message will be queued"
+            )
+        else:
+            await self._send_queue()
+            await self.ws_client.send_str(msg)
 
-        self.ws.send(msg)
-
-    def received(self, msg: Message):
+    async def received(self, msg: Message):
         """User defined callback when a message is received."""
-        if DEBUG:
-            print_debug("Message", str(msg))
+        _LOGGER.debug("Websocket message received")
 
-    def on_error(self, error):
+    async def on_error(self, error: str):
         """User defined callback when connection is errored."""
-        if DEBUG:
-            print_debug("Error", error)
+        _LOGGER.debug("Websocket connection error")
 
-    def on_close(self):
+    async def on_close(self):
         """User defined callback when connection is closed."""
-        if DEBUG:
-            print_debug("Close")
+        _LOGGER.debug("Websocket connection closed")
 
-    def on_open(self):
+    async def on_open(self):
         """User defined callback when connection is opened."""
-        self.send("subscription:subscribe()")
-        if DEBUG:
-            print_debug("Open")
+        _LOGGER.debug("Websocket connection opened")
 
-    def __on_error(self, ws, error):
-        self.run = False
+    async def __on_error(self, error: str):
         if self.on_error is not None:
-            self.on_error(error)
+            await self.on_error(error)
 
-    def __on_close(self, ws, *args):
-        self.run = False
+    async def __on_close(self):
         if self.on_close is not None:
-            self.on_close()
+            await self.on_close()
 
-    def __on_open(self, ws):
-        self.run = True
+    async def __on_open(self):
         if self.on_open is not None:
-            self.on_open()
+            await self.on_open()
+        if self.ws_client:
+            await self._send_queue()
 
-    def __received(self, ws, msg: str):
-        self.run = True
-        # if self.crypto is not None:
-        #     msg = self.crypto.decrypt(msg)
+    async def __received(self, msg: str):
         if self.received is not None and msg is not None:
             try:
                 format_msg = Message(None, [], None, None)
                 format_msg.parse("fake::" + msg, True)
                 # _LOGGER.info(format_msg.status())
-                self.received(format_msg)
+                await self.received(format_msg)
             except ParseError:
                 _LOGGER.exception("Failed to parse message: %s", msg)
-
-
-def print_debug(typ: Union[str, None] = None, element: Union[str, None] = None):
-    """Human readable debugging information."""
-    msg = f"Received: {typ}"
-    if typ == "UNKNOWN":
-        _LOGGER.warning(msg)
-        _LOGGER.warning(element)
-    elif typ == "Error":
-        _LOGGER.error(msg)
-        _LOGGER.error(element)
-    else:
-        _LOGGER.info(msg)
-        _LOGGER.info(element)
 
 
 if __name__ == "__main__":
@@ -205,13 +320,8 @@ if __name__ == "__main__":
         host=hostname_input,
         port=port_input,
         password=password_input,
-        use_ssl=use_ssl_input,
+        verify_ssl=use_ssl_input,
     )
-
-    client.received = lambda msg: _LOGGER.info("Received: %s", msg)  # type: ignore[method-assign]
-    client.on_error = lambda error: _LOGGER.info("Error: %s", error)  # type: ignore[method-assign]
-    client.on_close = lambda: _LOGGER.info("Connection closed")  # type: ignore[method-assign]
-    client.on_open = lambda: _LOGGER.info("Connection opened")  # type: ignore[method-assign]
 
     # client.start()
     _LOGGER.info("\n\n")
@@ -225,16 +335,16 @@ if __name__ == "__main__":
         user_input = input('Enter "exit" to stop server, "info" for information\n')
 
         if user_input == "info":
-            _LOGGER.info("%s\nRunning: %s", info, str(client.run))
+            _LOGGER.info("%s\nState: %s", info, str(client.state))
         elif user_input == "start":
-            client.start()
+            asyncio.run(client.listen())
         elif user_input == "stop":
-            client.stop()
+            client.close()
         elif user_input.startswith("send "):
-            client.send(user_input)
+            asyncio.run(client.send(user_input))
         elif user_input == "exit":
             _LOGGER.info("Goodbye")
         else:
             _LOGGER.info("Unknown command")
 
-    client.stop()
+    client.close()

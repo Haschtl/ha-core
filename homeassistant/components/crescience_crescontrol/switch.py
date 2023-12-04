@@ -35,7 +35,7 @@ async def async_setup_entry(
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.SWITCH:
             # and entity_key in extra_sensors:
-            sensor = CresControlSwitch(device, entity_key, config)
+            sensor = CresControlSwitch(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -44,10 +44,14 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
     """CresControl Switch Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Switch Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
         self._attr_is_on = False
         self._attr_device_class = SwitchDeviceClass.SWITCH
         # self._attr_icon = path2icon(path)
@@ -86,7 +90,7 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("fan"):
             return True
-            # self.device.send(
+            # self._device.send(
             #     f"{self.path}:meta;{self.path}:enabled;{self.path}:pwm-enabled;{self.path}:duty-cycle;{self.path}:pwm-frequency"
             # )
         return False

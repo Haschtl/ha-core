@@ -30,6 +30,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create static Sensor entities for entry."""
+    assert hass is not None
     uid = config_entry.data.get("uid")
     device = hass.data[DOMAIN]["devices"].get(uid)
 
@@ -37,7 +38,8 @@ async def async_setup_entry(
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.SENSOR:
             # and entity_key in extra_sensors:
-            sensor = CresControlSensor(device, entity_key, config)
+            sensor = CresControlSensor(hass, device, entity_key, config)
+            # sensor.hass = hass
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -46,12 +48,16 @@ class CresControlSensor(CresControlEntity, SensorEntity):
     """CresControl Sensor Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Sensor Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
         if path == "connection_status":
-            self.device.set_online_status_entity(self)
+            self._device.set_online_status_entity(self)
         else:
             self._attr_state_class = "measurement"
             self._attr_device_class = path2sensor_device_class(path)
@@ -76,7 +82,7 @@ class CresControlSensor(CresControlEntity, SensorEntity):
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("in-a", "in-b"):
             return True
-            # self.device.send(
+            # self._device.send(
             #     f"{self.path}:meta;{self.path}:calib-offset;{self.path}:calib-factor"
             # )
         return False

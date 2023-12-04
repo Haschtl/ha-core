@@ -29,7 +29,7 @@ async def async_setup_entry(
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.FAN:
             # and entity_key in extra_sensors:
-            sensor = CresControlFan(device, entity_key, config)
+            sensor = CresControlFan(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -82,7 +82,7 @@ class CresControlFan(CresControlEntity, FanEntity):
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("fan"):
             return True
-            # self.device.send(
+            # self._device.send(
             #     f"{self.path}:meta;{self.path}:enabled;{self.path}:duty-cycle;{self.path}:duty-cycle-min;{self.path}:rpm;{self.path}:rpm-prescaler;{self.path}:vcc-pwm;{self.path}:vcc-pwm-frequency"
             # )
         return False

@@ -32,7 +32,7 @@ async def async_setup_entry(
     sensors = []
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.DATE:
-            sensor = CresControlDate(device, entity_key, config)
+            sensor = CresControlDate(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 

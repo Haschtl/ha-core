@@ -2044,9 +2044,6 @@ watchdog==2.3.1
 # homeassistant.components.assist_pipeline
 webrtc-noise-gain==1.2.3
 
-# homeassistant.components.crescience_crescontrol
-websocket-client==1.6.4
-
 # homeassistant.components.whirlpool
 whirlpool-sixth-sense==0.18.4
 

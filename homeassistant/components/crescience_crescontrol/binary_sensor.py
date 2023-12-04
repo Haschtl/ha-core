@@ -33,7 +33,7 @@ async def async_setup_entry(
     sensors = []
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.BINARY_SENSOR:
-            sensor = CresControlBinarySensor(device, entity_key, config)
+            sensor = CresControlBinarySensor(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -42,13 +42,17 @@ class CresControlBinarySensor(CresControlEntity, BinarySensorEntity):
     """CresControl Binary Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Binary Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
 
         if path == "connected":
-            self.device.set_connected_entity(self)
+            self._device.set_connected_entity(self)
         else:
             self._attr_state_class = "measurement"
             self._attr_device_class = path2binary_sensor_device_class(path)

@@ -33,7 +33,7 @@ async def async_setup_entry(
     sensors = []
     for entity_key, config in STATIC_CRESCONTROL_FEATURES["entities"].items():
         if config["type"] == Platform.TEXT:
-            sensor = CresControlText(device, entity_key, config)
+            sensor = CresControlText(hass, device, entity_key, config)
             sensors.append(sensor)
     async_add_entities(sensors)
 
@@ -42,10 +42,14 @@ class CresControlText(CresControlEntity, TextEntity):
     """CresControl Text Entity."""
 
     def __init__(
-        self, device: CresControl, path: str, config: EntityDefinition
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
     ) -> None:
         """Create new CresControl Text Entity."""
-        super().__init__(device, path, config)
+        super().__init__(hass, device, path, config)
 
         # self._attr_state_class = "measurement"
         # self._attr_device_class = path2sensor_device_class(path)
