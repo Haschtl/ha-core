@@ -17,10 +17,15 @@ class EntityDefinition(TypedDict):
     sensor_class: SensorStateClass | None
 
 
+class IntentDefinition(TypedDict):
+    """Definition of a CresControl intents."""
+
+
 class FeatureObject(TypedDict):
     """Definition of CresControl entities."""
 
     entities: dict[str, EntityDefinition]
+    intents: dict[str, IntentDefinition]
 
 
 STATIC_CRESCONTROL_FEATURES: FeatureObject = {
@@ -1087,5 +1092,132 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "category": EntityCategory.CONFIG,
             "sensor_class": None,
         },
-    }
+        "system:reboot()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "time:get-time()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "eeprom:pull()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "eeprom:commit()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "eeprom:load()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "eeprom:save()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "eeprom:dump()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "wifi:client:start-wps()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "wifi:client:scan()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "wifi:client:disconnect()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "websocket:remote:connect()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "websocket:remote:disconnect()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "subscription:subscribe()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "subscription:unsubscribe()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "user:login()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "user:logout()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "filesystem:mount()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "filesystem:unmount()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "system:save()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+        "firmware:check-update()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.DIAGNOSTIC,
+            "sensor_class": None,
+        },
+        "firmware:perform-update()": {
+            "type": Platform.BUTTON,
+            "variant": "simple",
+            "category": EntityCategory.CONFIG,
+            "sensor_class": None,
+        },
+    },
+    "intents": {},
 }

@@ -5,14 +5,15 @@ Can be:
 """
 from typing import Any
 
-from homeassistant.components.fan import FanEntity
+from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES
+from .crescience.crescontrol import CresControl
+from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
 
 
@@ -37,12 +38,16 @@ async def async_setup_entry(
 class CresControlFan(CresControlEntity, FanEntity):
     """CresControl Fan Entity."""
 
-    # def __init__(
-    #     self, device: CresControl, path: str, config: EntityDefinition
-    # ) -> None:
-    #     """Create new CresControl Fan Entity."""
-    #     super().__init__(device, path, config)
-    #     # self._attr_entity_registry_enabled_default = path2default_enabled(path)
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        device: CresControl,
+        path: str,
+        config: EntityDefinition,
+    ) -> None:
+        """Create new CresControl Fan Entity."""
+        super().__init__(hass, device, path, config)
+        self._attr_supported_features = FanEntityFeature.SET_SPEED
 
     def set_percentage(self, percentage: int) -> None:
         """Set the speed percentage of the fan."""

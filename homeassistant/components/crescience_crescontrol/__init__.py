@@ -7,6 +7,7 @@
 # translations
 # connection_status buggy
 # update entity
+# button entity for scripts, und die anderen Module.
 
 from __future__ import annotations
 
@@ -35,6 +36,8 @@ PLATFORMS = frozenset(
         Platform.TEXT,
         Platform.BINARY_SENSOR,
         Platform.DATE,
+        Platform.BUTTON,
+        Platform.UPDATE,
     ]
 )
 
