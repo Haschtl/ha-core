@@ -71,7 +71,7 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         """Update entity cannot update."""
         self._attr_in_progress = False
         if self.path == "firmware:version":
-            self.send("firmware:check-update();firmware:version")
+            self.send("firmware:version")
         return True
 
     async def async_update(self) -> None:

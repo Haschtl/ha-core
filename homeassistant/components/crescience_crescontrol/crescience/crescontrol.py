@@ -7,23 +7,23 @@ from typing import Any
 
 import aiohttp
 
-import homeassistant.components.crescience_crescontrol.binary_sensor
-import homeassistant.components.crescience_crescontrol.button
-import homeassistant.components.crescience_crescontrol.crescontrol_entity
-import homeassistant.components.crescience_crescontrol.date
-import homeassistant.components.crescience_crescontrol.fan
-import homeassistant.components.crescience_crescontrol.number
-import homeassistant.components.crescience_crescontrol.select
-import homeassistant.components.crescience_crescontrol.sensor
-import homeassistant.components.crescience_crescontrol.switch
-import homeassistant.components.crescience_crescontrol.text
-import homeassistant.components.crescience_crescontrol.time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import EntityPlatform
 
+from ..binary_sensor import CresControlBinarySensor
+from ..button import CresControlButton
 from ..crescontrol_devices import EntityDefinition, path2entity_definition
+from ..crescontrol_entity import CresControlEntity
+from ..date import CresControlDate
+from ..fan import CresControlFan
+from ..number import CresControlNumber
+from ..select import CresControlSelect
+from ..sensor import CresControlSensor
+from ..switch import CresControlSwitch
+from ..text import CresControlText
+from ..time import CresControlTime
 from .client import (
     ConnectionErrorReason,
     ConnectionMessageType,
@@ -69,11 +69,11 @@ class CresControl(WebsocketClient):
         self.messageQueue: list[str] = []
         self.hass = hass
         self._config = config
-        self.connected_entity: homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor | None = None
-        self.connection_status_entity: homeassistant.components.crescience_crescontrol.sensor.CresControlSensor | None = None
+        self.connected_entity: CresControlBinarySensor | None = None
+        self.connection_status_entity: CresControlSensor | None = None
         self.dynamicEntities: dict[
             str,
-            homeassistant.components.crescience_crescontrol.crescontrol_entity.CresControlEntity,
+            CresControlEntity,
         ] = {}
         self.entity_update_callbacks: list[
             Callable[[str | None, Any, ConnectionMessageType | None], bool]
@@ -237,53 +237,27 @@ class CresControl(WebsocketClient):
         #     CresControlEntity,
         # )
 
-        entity: homeassistant.components.crescience_crescontrol.crescontrol_entity.CresControlEntity
+        entity: CresControlEntity
         if config["type"] == Platform.BUTTON:
-            entity = homeassistant.components.crescience_crescontrol.button.CresControlButton(
-                self.hass, self, path, config
-            )
+            entity = CresControlButton(self.hass, self, path, config)
         elif config["type"] == Platform.BINARY_SENSOR:
-            entity = homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor(
-                self.hass, self, path, config
-            )
+            entity = CresControlBinarySensor(self.hass, self, path, config)
         elif config["type"] == Platform.DATE:
-            entity = (
-                homeassistant.components.crescience_crescontrol.date.CresControlDate(
-                    self.hass, self, path, config
-                )
-            )
+            entity = CresControlDate(self.hass, self, path, config)
         elif config["type"] == Platform.FAN:
-            entity = homeassistant.components.crescience_crescontrol.fan.CresControlFan(
-                self.hass, self, path, config
-            )
+            entity = CresControlFan(self.hass, self, path, config)
         elif config["type"] == Platform.NUMBER:
-            entity = homeassistant.components.crescience_crescontrol.number.CresControlNumber(
-                self.hass, self, path, config
-            )
+            entity = CresControlNumber(self.hass, self, path, config)
         elif config["type"] == Platform.SELECT:
-            entity = homeassistant.components.crescience_crescontrol.select.CresControlSelect(
-                self.hass, self, path, config
-            )
+            entity = CresControlSelect(self.hass, self, path, config)
         elif config["type"] == Platform.SENSOR:
-            entity = homeassistant.components.crescience_crescontrol.sensor.CresControlSensor(
-                self.hass, self, path, config
-            )
+            entity = CresControlSensor(self.hass, self, path, config)
         elif config["type"] == Platform.SWITCH:
-            entity = homeassistant.components.crescience_crescontrol.switch.CresControlSwitch(
-                self.hass, self, path, config
-            )
+            entity = CresControlSwitch(self.hass, self, path, config)
         elif config["type"] == Platform.TEXT:
-            entity = (
-                homeassistant.components.crescience_crescontrol.text.CresControlText(
-                    self.hass, self, path, config
-                )
-            )
+            entity = CresControlText(self.hass, self, path, config)
         elif config["type"] == Platform.TIME:
-            entity = (
-                homeassistant.components.crescience_crescontrol.time.CresControlTime(
-                    self.hass, self, path, config
-                )
-            )
+            entity = CresControlTime(self.hass, self, path, config)
         else:
             raise NotImplementedError(
                 f"Dynamic entities of type {config['type']} are not implemented."
@@ -313,7 +287,7 @@ class CresControl(WebsocketClient):
 
     def set_online_status_entity(
         self,
-        entity: homeassistant.components.crescience_crescontrol.sensor.CresControlSensor,
+        entity: CresControlSensor,
     ):
         """Set the connection-status entity for this CresControl."""
         self.connection_status_entity = entity
@@ -321,7 +295,7 @@ class CresControl(WebsocketClient):
 
     def set_connected_entity(
         self,
-        entity: homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor,
+        entity: CresControlBinarySensor,
     ):
         """Set the connected entity for this CresControl."""
         self.connected_entity = entity
