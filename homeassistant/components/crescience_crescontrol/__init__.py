@@ -1,12 +1,6 @@
 """Crescience CresControl local-connection integration."""
-# Update device info version
-# extra device-Sachen: system:cpu-id, version
-# register services like send_message or system:update
-# Bei Verbindungsabbruch, erneut versuchen
 # translations
-# connection_status buggy
-# update entity
-# button entity for scripts, und die anderen Module.
+# update entity konfigurieren
 
 from __future__ import annotations
 

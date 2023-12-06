@@ -64,7 +64,7 @@ class CresControlSelect(CresControlEntity, SelectEntity):
 
     def select_option(self, option: str) -> None:
         """Change the selected option."""
-        self.send(f"={option}")
+        self.send(f"={option}", True)
 
     def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""

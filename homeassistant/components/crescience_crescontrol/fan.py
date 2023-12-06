@@ -48,10 +48,11 @@ class CresControlFan(CresControlEntity, FanEntity):
         """Create new CresControl Fan Entity."""
         super().__init__(hass, device, path, config)
         self._attr_supported_features = FanEntityFeature.SET_SPEED
+        self.last_percentage = 0
 
     def set_percentage(self, percentage: int) -> None:
         """Set the speed percentage of the fan."""
-        self.send(f"duty-cycle={percentage}")
+        self.send(f"duty-cycle={percentage}", True)
 
     def turn_on(
         self,
@@ -60,28 +61,32 @@ class CresControlFan(CresControlEntity, FanEntity):
         **kwargs: Any,
     ) -> None:
         """Turn on the fan."""
-        self.send("enabled=true")
+        self.send("enabled=true", True)
         if percentage is not None:
             self.set_percentage(percentage)
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the fan off."""
-        self.send("enabled=false")
+        self.send("enabled=false", True)
 
     # async def async_turn_on(self, speed: Optional[str] = None, percentage: Optional[int] = None, preset_mode: Optional[str] = None, **kwargs: Any) -> None:
     #     """Turn on the fan."""
 
     # async def async_set_percentage(self, percentage: int) -> None:
     #     """Set the speed percentage of the fan."""
-    #     self.send(f"duty-cycle={percentage}")
+    #     self.async_send(f"duty-cycle={percentage}", True)
 
     def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             if isinstance(value, str):
-                self._attr_is_on = parseBool(value)
+                enabled = parseBool(value)
             else:
-                self._attr_is_on = bool(value)
+                enabled = bool(value)
+            if enabled:
+                self._attr_percentage = self.last_percentage
+            else:
+                self._attr_percentage = 0
         except Exception as exc:
             raise UpdateError(exc) from exc
         return True
@@ -89,10 +94,8 @@ class CresControlFan(CresControlEntity, FanEntity):
     def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("fan"):
+            self.send(f"{self.path}:duty-cycle;{self.path}:enabled;")
             return True
-            # self._device.send(
-            #     f"{self.path}:meta;{self.path}:enabled;{self.path}:duty-cycle;{self.path}:duty-cycle-min;{self.path}:rpm;{self.path}:rpm-prescaler;{self.path}:vcc-pwm;{self.path}:vcc-pwm-frequency"
-            # )
         return False
 
     def set_custom(self, path: str, value: Any) -> bool:
@@ -107,6 +110,7 @@ class CresControlFan(CresControlEntity, FanEntity):
             if path == f"{self.path}:duty-cycle":
                 try:
                     self._attr_percentage = int(float(value))
+                    self.last_percentage = int(float(value))
                 except Exception as exc:
                     raise UpdateError(exc) from exc
                 return True

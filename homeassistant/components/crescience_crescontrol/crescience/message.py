@@ -326,10 +326,18 @@ class Message:
             sub_prefix="<dict",
             sub_suffix=">",
         )
+        strung, list_subs = substituteBetween2(
+            strung,
+            quote1="[",
+            quote2="]",
+            escape_char="\\",
+            sub_prefix="<list",
+            sub_suffix=">",
+        )
         strung, str_subs = substituteBetween(
             strung, quotes='"', escape_char="\\", sub_prefix="<str", sub_suffix=">"
         )
-        subs = {**dict_subs, **str_subs}
+        subs = {**dict_subs, **list_subs, **str_subs}
         strung = strung.replace(" ", "")
         colon_split = strung.split("::")
         if len(colon_split) == 1:
@@ -385,7 +393,7 @@ class Message:
                     if key in ret:
                         retsSplit[idx] = retsSplit[idx].replace(key, sub)
                 returns.append(convertAnyType(retsSplit[idx]))
-            self.returns = retsSplit
+            self.returns = returns
 
         self.checkValidity()
 
@@ -439,7 +447,7 @@ def convertAnyType(data: Any) -> None | float | str | dict:
         except json.decoder.JSONDecodeError:
             try:
                 return ast.literal_eval(data)
-            except (SyntaxError, NameError):
+            except (SyntaxError, NameError, ValueError):
                 # if isinstance(data, str):
                 #     if data.startswith('"'):
                 #         return data[1:-1]
@@ -468,8 +476,13 @@ def substituteBetween2(
     quoteIndices = [
         i
         for i, ltr in enumerate(strung)
-        if ((ltr in (quote1, quote2)) and strung.count('"', 0, i) % 2 == 0)
+        if (
+            (ltr in (quote1, quote2))
+            and (strung.count('"', 0, i) - strung.count('\\"', 0, i)) % 2 == 0
+        )
     ]
+    if len(quoteIndices) > 0:
+        pass
     return substitute(strung, quoteIndices, escape_char, sub_prefix, sub_suffix)
 
 
@@ -489,16 +502,18 @@ def substitute(
         escaped_quote_idxs = [i for i in quoteIndices if strung[i - 1] != escape_char]
 
         if len(escaped_quote_idxs) % 2 != 0:
-            raise ParseError("Invalid number of quotes")
+            raise ParseError(
+                f"Invalid number of quotes. Total: {len(quoteIndices)}, Unescaped: {len(escaped_quote_idxs)}"
+            )
 
         # replace strings with placeholders
         for i in reversed(range(int(len(escaped_quote_idxs) / 2))):
-            sub = strung[
-                escaped_quote_idxs[int(i * 2)] : escaped_quote_idxs[int(i * 2 + 1)] + 1
-            ]
+            start = escaped_quote_idxs[int(i * 2)]
+            end = escaped_quote_idxs[int(i * 2 + 1)] + 1
+            sub = strung[start:end]
             placeholder = sub_prefix + str(len(subs)) + sub_suffix
             subs[placeholder] = sub
-            strung = strung.replace(sub, placeholder)
+            strung = strung[0:start] + placeholder + strung[end:]
     return strung, subs
 
 

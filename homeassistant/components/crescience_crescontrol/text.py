@@ -56,8 +56,30 @@ class CresControlText(CresControlEntity, TextEntity):
         # self._attr_entity_registry_enabled_default = path2default_enabled(path)
         # self._attr_native_unit_of_measurement = path2unit(path)
         # self._attr_icon = path2icon(path)
-        self._attr_native_mode = "text"
+        if "meta" in path:
+            self._attr_native_value = "{}"
+        else:
+            self._attr_native_value = ""
+        if (
+            "token" in path
+            or "password" in path
+            or path in ("wifi:access-point:key", "wifi:client:key")
+        ):
+            self._attr_native_mode = "password"
+        else:
+            self._attr_native_mode = "text"
+
         self._attr_pattern = path2text_pattern(path)
+
+    async def async_set_value(self, value: str) -> None:
+        """Set the text value."""
+        value = value.replace('"', '\\"')
+        await self.async_send(f'{self.path}="{value}"')
+
+    def set_value(self, value: str) -> None:
+        """Set the text value."""
+        value = value.replace('"', '\\"')
+        self.send(f'{self.path}="{value}"')
 
     def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""

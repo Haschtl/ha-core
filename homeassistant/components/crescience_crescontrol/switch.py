@@ -57,26 +57,24 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
         # self._attr_icon = path2icon(path)
         # self._attr_entity_registry_enabled_default = path2default_enabled(path)
 
-    @property
-    def is_on(self) -> bool | None:
-        """If the switch is currently on or off."""
-        return self._attr_is_on
+    # @property
+    # def is_on(self) -> bool | None:
+    #     """If the switch is currently on or off."""
+    #     return self._attr_is_on
 
     def turn_on(self, **kwargs: Any) -> None:
         """Turn the entity on."""
-        self.send("enabled=true")
-
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the entity on."""
-        self.send("enabled=true")
+        if self._config["variant"] == "simple":
+            self.send(self.path + "=true")
+        else:
+            self.turn_on_custom()
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        self.send("enabled=false")
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the entity off."""
-        self.send("enabled=false")
+        if self._config["variant"] == "simple":
+            self.send(self.path + "=false")
+        else:
+            self.turn_off_custom()
 
     def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
@@ -91,22 +89,53 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
 
     def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
-        if self.path in ("fan"):
+        if self.path.startswith("switch-"):
+            self.send(self.path + ":enabled")
             return True
-            # self._device.send(
-            #     f"{self.path}:meta;{self.path}:enabled;{self.path}:pwm-enabled;{self.path}:duty-cycle;{self.path}:pwm-frequency"
-            # )
+        if self.path.startswith("schedule:"):
+            return True
+        if self.path.startswith("stabilization:bang-bang:"):
+            return True
+        if self.path.startswith("stabilization:pid:"):
+            return True
         return False
 
     def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
-        # if path == self.path:
-        #     self.set_main_value(value)
-        #     return True
-        if path.startswith(self.path + ":"):
-            if path == f"{self.path}:voltage":
+        if self.path.startswith("switch-"):
+            if path == f"{self.path}:enabled":
                 self.set_main_value(value)
                 return True
-            if path == f"{self.path}:enabled":
-                return True
+        if self.path.startswith("schedule:"):
+            return True
+        if self.path.startswith("stabilization:bang-bang:"):
+            return True
+        if self.path.startswith("stabilization:pid:"):
+            return True
+        return False
+
+    def turn_off_custom(self) -> bool:
+        """Turn device off, if entity-type is custom."""
+        return self.toggle_custom(False)
+
+    def turn_on_custom(self) -> bool:
+        """Turn device on, if entity-type is custom."""
+        return self.toggle_custom(True)
+
+    def toggle_custom(self, value: bool):
+        """Toggle function for custom switches."""
+        set_value = "true" if value else "false"
+        if self.path.startswith("switch-"):
+            self.send(f"enabled={set_value}")
+            return True
+        if (
+            self.path.startswith("schedule:")
+            or self.path.startswith("stabilization:bang-bang:")
+            or self.path.startswith("stabilization:pid:")
+        ):
+            feature_name = self.path.split(":")[-1]
+            feature_path = ":".join(self.path.split(":")[0:-1])
+            self.send(f'{feature_path}:set-enabled("{feature_name}",{set_value})')
+
+            return True
         return False

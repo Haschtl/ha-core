@@ -13,8 +13,6 @@ from .message import Message, ParseError
 logging.basicConfig(level=logging.INFO)
 _LOGGER = logging.getLogger(__name__)
 
-MAX_FAILED_ATTEMPTS = 5
-
 
 class ConnectionState(StrEnum):
     """State of the Websocket connection."""
@@ -65,8 +63,10 @@ class WebsocketClient:
         ]
         | None = None,
         session: aiohttp.ClientSession | None = None,
+        max_failed_attempts=5,
     ) -> None:
         """Create a new Websocket client."""
+        self.max_failed_attempts = max_failed_attempts
         self.session = session or aiohttp.ClientSession()
         self.port = port
         self.host = host
@@ -167,7 +167,10 @@ class WebsocketClient:
                 )
             self.state = ConnectionState.STOPPED
         except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as error:
-            if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            if (
+                self.max_failed_attempts > 0
+                and self.failed_attempts >= self.max_failed_attempts
+            ):
                 self._error_reason = ConnectionErrorReason.ERROR_TOO_MANY_RETRIES
                 self.state = ConnectionState.STOPPED
                 await self._callback(

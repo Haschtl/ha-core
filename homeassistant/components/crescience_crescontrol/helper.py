@@ -43,27 +43,23 @@ def path2number_device_class(path: str):
 #         return EntityCategory.CONFIG
 def path2default_enabled(path: str):
     """Entity default_enabled for given CresControl path."""
-    return (
-        path
-        in (
-            "in-a",
-            "in-b",
-            "out-a",
-            "out-b",
-            "out-c",
-            "out-d",
-            "out-e",
-            "out-f",
-            "switch-12v",
-            "switch-24v-a",
-            "switch-24v-b",
-            "fan",
-            "connected",
-            "system:reboot()",
-            "firmware:perform-update()",
-        )
-        or "extension" in path
-    )
+    return path in (
+        "in-a",
+        "in-b",
+        "out-a",
+        "out-b",
+        "out-c",
+        "out-d",
+        "out-e",
+        "out-f",
+        "switch-12v",
+        "switch-24v-a",
+        "switch-24v-b",
+        "fan",
+        "connected",
+        "system:reboot",
+        "firmware:perform-update",
+    ) or ("extension:" in path and not "extension:metas")
 
 
 def path2binary_sensor_device_class(path: str):
@@ -141,7 +137,11 @@ def path2text_pattern(path: str) -> str | None:
         # a domain
         return r"^(((([A-Za-z0-9]+){1,63}\.)|(([A-Za-z0-9]+(\-)+[A-Za-z0-9]+){1,63}\.))+){1,255}$"
     if path in ("firmware:target-version"):
+        # a valid semver
         return r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+    if "meta" in path:
+        return r'^\s*(\{(?:\s*"(?:\\.|[^"\\])*"\s*:\s*(?:"(?:\\.|[^"\\])*"|(?:true|false|null|\d+|\{.*\}|\[.*\]))(?:,\s*"(?:\\.|[^"\\])*"\s*:\s*(?:"(?:\\.|[^"\\])*"|(?:true|false|null|\d+|\{.*\}|\[.*\])))*\s*)?\}|\[(?:(?:"(?:\\.|[^"\\])*"|(?:true|false|null|\d+|\{.*\}|\[.*\]))(?:,\s*(?:"(?:\\.|[^"\\])*"|(?:true|false|null|\d+|\{.*\}|\[.*\])))*\s*)?\])\s*$'
+        # return  r'^\s*(\{.*\}|\[.*\])\s*$'
     return None
 
 
@@ -177,6 +177,20 @@ def path2number_range(path: str) -> NumberRange:
 
 def path2icon(path: str):
     """Entity icon for given CresControl path."""
+    if "schedule" in path:
+        return "mdi:receipt-text-clock"
+    if "stabilization" in path:
+        return "mdi:video-stabilization"
+    if "radio" in path:
+        return "mdi:remote"
+    if "rs485" in path or "websocket" in path:
+        return "mdi:protocol"
+    if "script:start" in path:
+        return "mdi:script-text-play"
+    if "script:stop" in path:
+        return "mdi:script-text-key"
+    if "wifi" in path:
+        return "mdi:wifi"
     if "temperature" in path:
         return "mdi:thermometer"
     if "humidity" in path:
@@ -184,7 +198,9 @@ def path2icon(path: str):
     if "voltage" in path:
         return "mdi:flash-triangle-outline"
     if path in ("out-a", "out-b", "out-c", "out-d", "out-e", "out-f"):
-        return "mdi:flash-triangle-outline"
+        return "mdi:flash"
+    if path in ("in-a", "in-b"):
+        return "mdi:flash-red-eye"
     if "system:frequency" in path:
         return "mdi:cpu-32-bit"
     if "fan:rpm" in path:
@@ -195,6 +211,8 @@ def path2icon(path: str):
         return "mdi:clock-time-eight"
     if "rssi" in path:
         return "mdi:wifi-strength-1"
+    if "meta" in path:
+        return "mdi:information-slab-box-outline"
     return None
 
 

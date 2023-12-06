@@ -19,11 +19,11 @@ import homeassistant.components.crescience_crescontrol.switch
 import homeassistant.components.crescience_crescontrol.text
 import homeassistant.components.crescience_crescontrol.time
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import EntityPlatform
 
-from ..crescontrol_devices import EntityDefinition
+from ..crescontrol_devices import EntityDefinition, path2entity_definition
 from .client import (
     ConnectionErrorReason,
     ConnectionMessageType,
@@ -31,7 +31,7 @@ from .client import (
     WebsocketClient,
 )
 from .helper import represents_number
-from .message import Message
+from .message import Command, Message
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +61,9 @@ class CresControl(WebsocketClient):
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         """Initialize CresControl object inside home-assistant."""
-        super().__init__(host, 81, None, False, callback, session)
+        super().__init__(
+            host, 81, None, False, callback, session, max_failed_attempts=-1
+        )
         self.uid = uid
         self.tag = tag
         self.messageQueue: list[str] = []
@@ -73,7 +75,9 @@ class CresControl(WebsocketClient):
             str,
             homeassistant.components.crescience_crescontrol.crescontrol_entity.CresControlEntity,
         ] = {}
-        self.entity_update_callbacks: list[Callable[[str, Any], bool]] = []
+        self.entity_update_callbacks: list[
+            Callable[[str | None, Any, ConnectionMessageType | None], bool]
+        ] = []
         self.status_entity_id = domain + ".status_" + uid.replace("-", "_")
 
     @property
@@ -92,23 +96,50 @@ class CresControl(WebsocketClient):
             return True
         for cb in self.entity_update_callbacks:
             # cb(path, value)
-            handled = cb(path, value)
+            handled = cb(path, value, None)
             if handled:
                 break
         return handled
 
     # @callback
-    def _received_dynamic_entity(self, path: str, value: Any) -> bool:
+    def _received_dynamic_entity(self, command: Command, value: Any) -> bool:
         # entity_id = makeEntityId(self.uid, path)
+        path = find_feature_path(command, value)
         if path in self.dynamicEntities:
             if represents_number(value):
-                self.dynamicEntities[path].set_state(path, float(value))
+                self.dynamicEntities[path].set_state(path, float(value), None)
             else:
-                self.dynamicEntities[path].set_state(path, str(value))
+                self.dynamicEntities[path].set_state(path, str(value), None)
             # self.dynamicEntities[path].set_main_value(value)
             self.dynamicEntities[path].schedule_update_ha_state()
+        elif path.endswith("get-all"):
+            if isinstance(value, list):
+                if len(value) > 0:
+                    for feature in value:
+                        if path == "script:get-all":
+                            self.add_script(feature)
+                        elif path == "schedule:get-all":
+                            self.add_schedule(feature)
+                        elif path == "radio:remote:get-all":
+                            self.add_radio_remote(feature)
+                        elif path == "radio:device:get-all":
+                            self.add_radio_device(feature)
+                        elif path == "stabilization:bang-bang:get-all":
+                            self.add_stabilization_bang_bang(feature)
+                        elif path == "stabilization:pid:get-all":
+                            self.add_stabilization_pid(feature)
+                        else:
+                            _LOGGER.warning(
+                                "Cannot handle this get-all() message: %s", path
+                            )
+            else:
+                _LOGGER.error(
+                    "Cannot handle this get-all() message. Return type is wrong: %s",
+                    path,
+                )
+
         else:
-            self.createDynamicSensorEntity(path, value)
+            self.add_dynamic_entity(path, value)
         return True
 
     # @callback
@@ -116,49 +147,50 @@ class CresControl(WebsocketClient):
         """CresNet message received callback."""
         if isinstance(msg.returns, list):
             for idx, command in enumerate(msg.commands):
-                if command.typ == "parameterGet":
+                if command.typ in ("parameterGet", "functionCall"):
                     path = ":".join(command.path)
-                    # _LOGGER.warning("Message received %s::%s", path, msg.returns[idx])
-
-                    # handled = False
-                    # for cb in self.entity_update_callbacks:
-                    #     handled = cb(path, msg.returns[idx])
-                    #     if handled:
-                    #         break
-                    # try:
-                    handled = self._received_registered_entity(path, msg.returns[idx])
-                    # except Exception:
-                    #     _LOGGER.exception("Handling command failed")
-                    #     handled = True
-                    if not handled:
-                        # !!! dynamic disabled
-                        # pass
-                        handled = self._received_dynamic_entity(path, msg.returns[idx])
+                    if path not in ("subscription:subscribe"):
+                        handled = self._received_registered_entity(
+                            path, msg.returns[idx]
+                        )
+                        if not handled:
+                            handled = self._received_dynamic_entity(
+                                command, msg.returns[idx]
+                            )
 
     # @callback
     async def on_close(self, *args):
         """Websocket connection closed callback."""
         _LOGGER.warning("Connection with %s closed", self.uid)
         self.set_status("closed")
+        for cb in self.entity_update_callbacks:
+            cb(None, None, ConnectionMessageType.CLOSED)
 
     # @callback
     async def on_open(self):
         """Websocket connection opened callback."""
         _LOGGER.info("Connection with %s opened", self.uid)
+        # await self.send(
+        #     "subscription:subscribe();out-a:voltage;out-b:voltage;out-c:voltage;out-d:voltage;out-e:voltage;out-f:voltage;fan:rpm;switch-12v:enabled;switch-24v-a:enabled;switch-24v-b:enabled;fan:duty-cycle"
+        # )
         await self.send(
-            "subscription:subscribe();out-a:voltage;out-b:voltage;out-c:voltage;out-d:voltage;out-e:voltage;out-f:voltage;fan:rpm;switch-12v:enabled;switch-24v-a:enabled;switch-24v-b:enabled;fan:duty-cycle"
+            "subscription:subscribe();script:get-all();schedule:get-all();radio:remote:get-all();radio:device:get-all();stabilization:bang-bang:get-all();stabilization:pid:get-all()"
         )
         if len(self.messageQueue) > 0:
             for message in self.messageQueue:
                 await self.send(message)
             self.messageQueue = []
         self.set_status("connected")
+        for cb in self.entity_update_callbacks:
+            cb(None, None, ConnectionMessageType.OPEN)
 
     # @callback
     async def on_error(self, error, *args):
         """Websocket connection error callback."""
         _LOGGER.warning("Connection with %s error", self.uid)
         self.set_status("error")
+        for cb in self.entity_update_callbacks:
+            cb(None, None, ConnectionMessageType.ERROR)
 
     def update_status(self):
         """Update the status entities."""
@@ -178,7 +210,7 @@ class CresControl(WebsocketClient):
             self.connection_status_entity.schedule_update_ha_state()
         else:
             _LOGGER.warning(
-                "Cannot set device status to '%s', no connection-status-entity registered. This is expected, if the update-entity is disabled",
+                "Cannot set device status to '%s', no connection-status-entity registered. This is expected, if the connection-status-entity is disabled",
                 value,
             )
         if self.connected_entity is not None:
@@ -192,26 +224,15 @@ class CresControl(WebsocketClient):
             )
         # self.hass.states.async_set(self.status_entity_id, "error")
 
-    def createDynamicSensorEntity(self, path: str, initValue: Any):
+    def add_dynamic_entity(self, path: str, initValue: Any):
         """Create a dynamic sensor-entity. Used for CresControl extensions."""
-        sensor = self.add_entity(
-            path,
-            {
-                "type": Platform.SENSOR,
-                "variant": "simple",
-                "category": None,
-                "sensor_class": None,
-            },
-        )
-        sensor.set_main_value(initValue)
+        sensor = self.add_entity(path, path2entity_definition(path))
+        if initValue is not None:
+            sensor.set_main_value(initValue)
 
-    def add_entity(
-        self,
-        path: str,
-        config: EntityDefinition,
-    ):
+    def add_entity(self, path: str, config: EntityDefinition, enabled_default=True):
         """Add an entity to this device."""
-        _LOGGER.info("Creating new dynamic sensor for %s", path)
+        _LOGGER.info("Creating new dynamic %s for %s", config["type"], path)
         # from ..crescontrol_entity import (  # pylint: disable=import-outside-toplevel
         #     CresControlEntity,
         # )
@@ -267,22 +288,26 @@ class CresControl(WebsocketClient):
             raise NotImplementedError(
                 f"Dynamic entities of type {config['type']} are not implemented."
             )
-        entity._attr_entity_registry_enabled_default = True  # pylint: disable=protected-access
-        self.hass.async_add_job(self._platform.async_add_entities([entity]))
+        entity._attr_entity_registry_enabled_default = enabled_default  # pylint: disable=protected-access
+        self.hass.async_add_job(
+            self.get_platform(config["type"]).async_add_entities([entity])
+        )
         self.dynamicEntities[path] = entity
         # sensor.schedule_update_ha_state()
         return entity
 
-    @property
-    def _platform(self):
-        entity_component = self.hass.data["sensor"]  # EntityComponent for sensor
+    def get_platform(self, platform: Platform = Platform.SENSOR):
+        """Get platform for given platform."""
+        entity_component = self.hass.data[platform]  # EntityComponent for sensor
         entity_platform: EntityPlatform = entity_component._platforms[  # pylint: disable=protected-access
             self._config.entry_id
         ]
         return entity_platform
 
     # @callback
-    def register_update(self, cb: Callable[[str, Any], bool]):
+    def register_update(
+        self, cb: Callable[[str | None, Any, ConnectionMessageType | None], bool]
+    ):
         """Register a new entity, which needs updates."""
         self.entity_update_callbacks.append(cb)
 
@@ -312,3 +337,127 @@ class CresControl(WebsocketClient):
     #     #     msg = self.crypto.encrypt(msg)
 
     #     self.ws.send(msg)
+
+    def add_script(self, name: str):
+        """Add dynamic entities for scripts."""
+        _LOGGER.info("Adding entities for script: %s", name)
+        start_path = f"script:start:{name}"
+        stop_path = f"script:stop:{name}"
+        self.add_entity(
+            start_path,
+            {
+                "type": Platform.BUTTON,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+        self.add_entity(
+            stop_path,
+            {
+                "type": Platform.BUTTON,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+
+    def add_schedule(self, name: str):
+        """Add dynamic entity for schedule."""
+        _LOGGER.info("Adding entity for schedule: %s", name)
+        self.add_entity(
+            f"schedule:{name}",
+            {
+                "type": Platform.SWITCH,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+
+    def add_radio_remote(self, name: str):
+        """Add dynamic entity for radio:remote."""
+        _LOGGER.warning("Adding entity for radio:remote: %s is not supported", name)
+        # self.add_entity(
+        #     f"schedule:{name}",
+        #     {
+        #         "type": Platform.SWITCH,
+        #         "category": EntityCategory.CONFIG,
+        #         "sensor_class": None,
+        #         "variant": "custom",
+        #     },
+        # )
+
+    def add_radio_device(self, name: str):
+        """Add dynamic entity for radio:device."""
+        _LOGGER.info("Adding entity for radio:device: %s", name)
+        # start_path = f"radio:device:on:{name}"
+        start_path = f"radio:device:{name}"
+        # stop_path = f"radio:device:off:{name}"
+        self.add_entity(
+            start_path,
+            {
+                "type": Platform.BUTTON,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+        # self.add_entity(
+        #     stop_path,
+        #     {
+        #         "type": Platform.BUTTON,
+        #         "category": EntityCategory.CONFIG,
+        #         "sensor_class": None,
+        #         "variant": "custom",
+        #     },
+        # )
+
+    def add_stabilization_bang_bang(self, name: str):
+        """Add dynamic entity for stabilization:bang-bang."""
+        _LOGGER.info("Adding entity for stabilization:bang-bang: %s", name)
+        self.add_entity(
+            f"stabilization:bang-bang:{name}",
+            {
+                "type": Platform.SWITCH,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+
+    def add_stabilization_pid(self, name: str):
+        """Add dynamic entity for stabilization:pid."""
+        _LOGGER.info("Adding entity for stabilization:pid: %s", name)
+        self.add_entity(
+            f"stabilization:pid:{name}",
+            {
+                "type": Platform.SWITCH,
+                "category": EntityCategory.CONFIG,
+                "sensor_class": None,
+                "variant": "custom",
+            },
+        )
+
+
+def find_feature_path(command: Command, value: Any):
+    """Check for CresControl feature paths registered as dynamic entity."""
+    path = ":".join(command.path)
+    if (
+        command.typ == "functionCall"
+        and command.func_parameters is not None
+        and len(command.func_parameters) > 0
+    ):
+        if path.startswith("stabilization:bang-bang:"):
+            return f"stabilization:bang-bang:{str(command.func_parameters[0])}"
+        if path.startswith("stabilization:pid:"):
+            return f"stabilization:pid:{str(command.func_parameters[0])}"
+        if path.startswith("schedule:"):
+            return f"schedule:{str(command.func_parameters[0])}"
+        if path.startswith("radio:device:"):
+            return f"radio:device:{str(command.func_parameters[0])}"
+        if path.startswith("radio:remote:"):
+            return f"radio:remote:{str(command.func_parameters[0])}"
+        if path.startswith("script:"):
+            return f"script:{str(command.func_parameters[0])}"
+    return path

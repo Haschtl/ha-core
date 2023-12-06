@@ -1,7 +1,7 @@
 """Crescontrol button entities.
 
 Can be:
-- system:reboot()
+- system:reboot
 """
 import logging
 
@@ -47,8 +47,16 @@ class CresControlButton(CresControlEntity, ButtonEntity):
     ) -> None:
         """Create new CresControl Button Entity."""
         super().__init__(hass, device, path, config)
-        if path == "system:reboot()":
+        if path == "system:reboot":
             self._attr_device_class = ButtonDeviceClass.RESTART
+            self._attr_available = True
+            self._attr_entity_registry_enabled_default = True
+            self._attr_entity_registry_visible_default = True
+
+    # @property
+    # def available(self):
+    #     """Buttons are always available, if online."""
+    #     return True
 
     def update(self) -> None:
         """Button entity cannot update."""
@@ -59,4 +67,22 @@ class CresControlButton(CresControlEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Button press callback."""
-        await self._device.send(self.path)
+        if self._config["variant"] == "simple":
+            await self.async_send(self.path + "()")
+        else:
+            await self.async_press_custom()
+
+    async def async_press_custom(self):
+        """Button press callback for custom entities."""
+        if self.path.startswith("radio:device:"):
+            feature_name = self.path.split(":")[-1]
+            await self.async_send(f'radio:device:transmit("{feature_name}")')
+        # elif self.path.startswith("radio:device:off:"):
+        #     feature_name = self.path.split(":")[-1]
+        #     await self.async_send(f'radio:device:off("{feature_name}")')
+        elif self.path.startswith("script:start:"):
+            feature_name = self.path.split(":")[-1]
+            await self.async_send(f'script:start("{feature_name}")')
+        elif self.path.startswith("script:stop:"):
+            feature_name = self.path.split(":")[-1]
+            await self.async_send(f'script:stop("{feature_name}")')

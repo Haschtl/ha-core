@@ -54,11 +54,15 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         self._attr_device_class = UpdateDeviceClass.FIRMWARE
         self._attr_auto_update = False
         self._attr_installed_version = "0.0.0"
-        self._attr_latest_version = "0.0.0"
+        self._attr_latest_version = "latest"
+        self._attr_release_url = "https://update.cre.science/crescontrol"
         self._attr_title = "CresControl Firmware"
         self._attr_supported_features = (
-            UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION
+            UpdateEntityFeature.INSTALL & UpdateEntityFeature.SPECIFIC_VERSION
         )
+        self._attr_available = True
+        self._attr_entity_registry_enabled_default = True
+        self._attr_entity_registry_visible_default = True
 
     def update(self) -> None:
         """Update entity cannot update."""
@@ -69,12 +73,12 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
 
     async def async_update(self) -> None:
         """Update CresControl firmware."""
-        await self._device.send(self.path)
+        await self.async_send(self.path)
 
     async def async_install(
         self, version: str | None, backup: bool, **kwargs: Any
     ) -> None:
         """Install an update."""
-        await self._device.send(f"firmware:target-version={version or 'latest'}")
+        await self.async_send(f"firmware:target-version={version or 'latest'}")
         _LOGGER.error("Install update is not implemented")
-        await self._device.send(self.path)
+        await self.async_send(self.path)

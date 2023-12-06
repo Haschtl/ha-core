@@ -58,7 +58,7 @@ class PlaceholderHub:
         tag = http_command(self.host, "tag").replace('"', "")
         return {"tag": tag}
 
-    async def ping(self) -> bool:
+    def ping(self) -> bool:
         """Ping the device."""
         # test_ok = os.system("ping -c 1 " + self.host)
         get = requests.get(f"http://{self.host}", timeout=5)

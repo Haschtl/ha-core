@@ -11,6 +11,7 @@ from homeassistant.helpers.entity import Entity
 from .const import DOMAIN
 
 if TYPE_CHECKING:
+    from .crescience.client import ConnectionMessageType
     from .crescience.crescontrol import CresControl
 from .crescontrol_devices import EntityDefinition
 from .helper import path2default_enabled, path2icon, path2nice_name, path2unit
@@ -74,11 +75,19 @@ class CresControlEntity(Entity):
             self._device.set_connected_entity(self)  # type: ignore[arg-type]
             self._device.update_status()
 
-    def send(self, msg: str):
+    def send(self, msg: str, prefix=False):
         """Send a message to this entity."""
-        # self._device.send(f"{self.path}:{msg}")
-        self.hass.add_job(self._device.send(f"{self.path}:{msg}"))
-        # self.hass.loop.create_task(self._device.send(f"{self.path}:{msg}"))
+        if prefix:
+            self.hass.add_job(self._device.send(f"{self.path}:{msg}"))
+        else:
+            self.hass.add_job(self._device.send(msg))
+
+    async def async_send(self, msg: str, prefix=False):
+        """Send a message to this entity."""
+        if prefix:
+            await self._device.send(f"{self.path}:{msg}")
+        else:
+            await self._device.send(msg)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -158,9 +167,31 @@ class CresControlEntity(Entity):
         return False
 
     # @callback
-    def set_state(self, path: str, value: Any):
+    def set_state(
+        self, path: str | None, value: Any, device_status: ConnectionMessageType | None
+    ) -> bool:
         """Update-routine for CresControl entities."""
         # assert self.entity_id is not None
+        if path is not None and value is not None:
+            return self._set_state(path, value)
+        if device_status is not None:
+            return self._handle_device_change(device_status)
+        return False
+
+    def _handle_device_change(self, device_status: ConnectionMessageType) -> bool:
+        if self.enabled:
+            try:
+                self.schedule_update_ha_state()
+            except (RuntimeError, AttributeError):
+                _LOGGER.exception(
+                    "Entity %s update_state failed device_status = %s",
+                    self.entity_id,
+                    device_status,
+                )
+        return True
+
+    def _set_state(self, path: str, value: Any) -> bool:
+        """Update-routine for CresControl entities."""
         if path.startswith(self.path):
             try:
                 if self._config["variant"] == "simple":

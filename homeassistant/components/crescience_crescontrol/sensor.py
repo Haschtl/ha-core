@@ -77,10 +77,8 @@ class CresControlSensor(CresControlEntity, SensorEntity):
     def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("in-a", "in-b"):
+            self.send(f"{self.path}:voltage")
             return True
-            # self._device.send(
-            #     f"{self.path}:meta;{self.path}:calib-offset;{self.path}:calib-factor"
-            # )
         return False
 
     def set_custom(self, path: str, value: Any) -> bool:

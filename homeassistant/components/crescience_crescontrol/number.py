@@ -62,7 +62,15 @@ class CresControlNumber(CresControlEntity, NumberEntity):
 
     def set_native_value(self, value: float) -> None:
         """Update the current value."""
-        self.send(f"voltage={value}")
+        if self._config["variant"] == "simple":
+            self.send(f"={value}", True)
+        else:
+            self.set_native_value_custom(value)
+
+    def set_native_value_custom(self, value: float) -> None:
+        """Update the current value for custom entities."""
+        if self.path in ("out-a", "out-b", "out-c", "out-d", "out-e", "out-f"):
+            self.send(f"voltage={value}", True)
 
     def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
@@ -75,10 +83,8 @@ class CresControlNumber(CresControlEntity, NumberEntity):
     def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("out-a", "out-b", "out-c", "out-d", "out-e", "out-f"):
+            self.hass.add_job(self._device.send(f"{self.path}:voltage"))
             return True
-            # self.device.send(
-            #     f"{self.path}:meta;{self.path}:enabled;{self.path}:pwm-enabled;{self.path}:pwm-frequency;{self.path}:threshold;{self.path}:calib-offset;{self.path}:calib-factor"
-            # )
         return False
 
     def set_custom(self, path: str, value: Any) -> bool:
