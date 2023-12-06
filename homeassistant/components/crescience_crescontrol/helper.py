@@ -58,7 +58,7 @@ def path2default_enabled(path: str):
         "fan",
         "connected",
         "system:reboot",
-        "firmware:perform-update",
+        "firmware:version",
     ) or ("extension:" in path and not "extension:metas")
 
 

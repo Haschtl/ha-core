@@ -985,9 +985,9 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "sensor_class": None,
         },
         "firmware:version": {
-            "type": Platform.SENSOR,
-            "variant": "simple",
-            "category": EntityCategory.DIAGNOSTIC,
+            "type": Platform.UPDATE,
+            "variant": "custom",
+            "category": EntityCategory.CONFIG,
             "sensor_class": None,
         },
         "firmware:target-version": {
@@ -1210,12 +1210,6 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "type": Platform.BUTTON,
             "variant": "simple",
             "category": EntityCategory.DIAGNOSTIC,
-            "sensor_class": None,
-        },
-        "firmware:perform-update": {
-            "type": Platform.UPDATE,
-            "variant": "simple",
-            "category": EntityCategory.CONFIG,
             "sensor_class": None,
         },
     },

@@ -1,6 +1,5 @@
 """Crescience CresControl local-connection integration."""
 # translations
-# update entity konfigurieren
 
 from __future__ import annotations
 
