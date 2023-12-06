@@ -15,7 +15,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
 
@@ -46,7 +45,7 @@ class CresControlTime(CresControlEntity, TimeEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -54,7 +53,7 @@ class CresControlTime(CresControlEntity, TimeEntity):
         super().__init__(hass, device, path, config)
         self._attr_native_value = time(0, 0, 0)
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             timeParts = (
@@ -75,6 +74,6 @@ class CresControlTime(CresControlEntity, TimeEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         return False

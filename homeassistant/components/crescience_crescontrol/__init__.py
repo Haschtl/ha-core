@@ -3,7 +3,6 @@
 # extra device-Sachen: system:cpu-id, version
 # register services like send_message or system:update
 # Bei Verbindungsabbruch, erneut versuchen
-# register intents for Speech
 # translations
 # connection_status buggy
 # update entity
@@ -18,9 +17,6 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-# from homeassistant.helpers.typing import ConfigType
-# from homeassistant.helpers.discovery import async_load_platform
-# from .crescience.client import ConnectionErrorReason, ConnectionMessageType
 from .const import DOMAIN
 from .crescience.crescontrol import CresControl
 
@@ -60,6 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     device = CresControl(
         hass,
+        DOMAIN,
         config,
         host,
         uid,

@@ -1,23 +1,29 @@
 """CresControl object for local connection with home-assistant."""
+from __future__ import annotations
+
 from collections.abc import Callable
 import logging
 from typing import Any
 
 import aiohttp
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.components.sensor import SensorEntity
+import homeassistant.components.crescience_crescontrol.binary_sensor
+import homeassistant.components.crescience_crescontrol.button
+import homeassistant.components.crescience_crescontrol.crescontrol_entity
+import homeassistant.components.crescience_crescontrol.date
+import homeassistant.components.crescience_crescontrol.fan
+import homeassistant.components.crescience_crescontrol.number
+import homeassistant.components.crescience_crescontrol.select
+import homeassistant.components.crescience_crescontrol.sensor
+import homeassistant.components.crescience_crescontrol.switch
+import homeassistant.components.crescience_crescontrol.text
+import homeassistant.components.crescience_crescontrol.time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import EntityPlatform
 
-# from homeassistant.core import HomeAssistant, callback
-# from homeassistant.helpers import entity_registry as ent_reg
-# from homeassistant.helpers.entity import Entity
-from ..const import DOMAIN
-
-# from ..sensor import CresControlSensor
+from ..crescontrol_devices import EntityDefinition
 from .client import (
     ConnectionErrorReason,
     ConnectionMessageType,
@@ -30,17 +36,10 @@ from .message import Message
 _LOGGER = logging.getLogger(__name__)
 
 
-def makeEntityId(uid: str, path: str):
-    """Generate unique Entity-ID for given device-uid and CresControl path."""
-    return (
-        f"{DOMAIN}.{uid.replace('-', '_')}_p_{path.replace('-', '_').replace(':', '_')}"
-    )
-
-
 # class CresControlEntity(Entity):
 #     """Dummy-entity to avoid circular import."""
 
-#     def update_main_value(self, value: Any):
+#     def set_main_value(self, value: Any):
 #         """Update main value."""
 
 
@@ -50,6 +49,7 @@ class CresControl(WebsocketClient):
     def __init__(
         self,
         hass: HomeAssistant,
+        domain: str,
         config: ConfigEntry,
         host: str,
         uid: str,
@@ -67,11 +67,14 @@ class CresControl(WebsocketClient):
         self.messageQueue: list[str] = []
         self.hass = hass
         self._config = config
-        self.connected_entity: BinarySensorEntity | None = None
-        self.connection_status_entity: SensorEntity | None = None
-        self.dynamicEntities: dict[str, SensorEntity] = {}
+        self.connected_entity: homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor | None = None
+        self.connection_status_entity: homeassistant.components.crescience_crescontrol.sensor.CresControlSensor | None = None
+        self.dynamicEntities: dict[
+            str,
+            homeassistant.components.crescience_crescontrol.crescontrol_entity.CresControlEntity,
+        ] = {}
         self.entity_update_callbacks: list[Callable[[str, Any], bool]] = []
-        self.status_entity_id = DOMAIN + ".status_" + uid.replace("-", "_")
+        self.status_entity_id = domain + ".status_" + uid.replace("-", "_")
 
     @property
     def available(self):
@@ -96,17 +99,13 @@ class CresControl(WebsocketClient):
 
     # @callback
     def _received_dynamic_entity(self, path: str, value: Any) -> bool:
-        _LOGGER.warning(
-            "Message was not handled by regular parser. Falling back to generic sensors: %s",
-            path,
-        )
         # entity_id = makeEntityId(self.uid, path)
         if path in self.dynamicEntities:
             if represents_number(value):
-                self.dynamicEntities[path]._attr_native_value = float(value)  # pylint: disable=protected-access
+                self.dynamicEntities[path].set_state(path, float(value))
             else:
-                self.dynamicEntities[path]._attr_native_value = str(value)  # pylint: disable=protected-access
-            # self.dynamicEntities[path].update_main_value(value)
+                self.dynamicEntities[path].set_state(path, str(value))
+            # self.dynamicEntities[path].set_main_value(value)
             self.dynamicEntities[path].schedule_update_ha_state()
         else:
             self.createDynamicSensorEntity(path, value)
@@ -175,37 +174,27 @@ class CresControl(WebsocketClient):
         """Update the connection status entities."""  #
         if self.connection_status_entity is not None:
             self.connection_status_entity._attr_native_value = str(value)  # pylint: disable=protected-access
-            # self.connection_status_entity.update_main_value(value)
+            # self.connection_status_entity.set_main_value(value)
             self.connection_status_entity.schedule_update_ha_state()
         else:
-            _LOGGER.error(
-                "Cannot set device status to '%s', no connection-status-entity registered",
+            _LOGGER.warning(
+                "Cannot set device status to '%s', no connection-status-entity registered. This is expected, if the update-entity is disabled",
                 value,
             )
         if self.connected_entity is not None:
             self.connected_entity._attr_is_on = value in ("connected")  # pylint: disable=protected-access
-            # self.connected_entity.update_main_value(value in ("connected"))
+            # self.connected_entity.set_main_value(value in ("connected"))
             self.connected_entity.schedule_update_ha_state()
         else:
-            _LOGGER.error(
-                "Cannot set device status to '%s', no connected-entity registered",
+            _LOGGER.warning(
+                "Cannot set device status to '%s', no connected-entity registered. This is expected, if the update-state-entity is disabled",
                 value,
             )
         # self.hass.states.async_set(self.status_entity_id, "error")
 
     def createDynamicSensorEntity(self, path: str, initValue: Any):
         """Create a dynamic sensor-entity. Used for CresControl extensions."""
-        _LOGGER.warning("Creating new unknown sensor for %s", path)
-        # hass.async_create_task(
-        #     hass.config_entries.async_forward_entry_setup(config_entry, DOMAIN)
-        # )
-        from ..sensor import (  # pylint: disable=import-outside-toplevel
-            CresControlSensor,
-        )
-
-        sensor = CresControlSensor(
-            self.hass,
-            self,
+        sensor = self.add_entity(
             path,
             {
                 "type": Platform.SENSOR,
@@ -214,15 +203,75 @@ class CresControl(WebsocketClient):
                 "sensor_class": None,
             },
         )
-        # sensor.add_to_platform_start(self.hass)
-        # sensor.hass = self.hass
-        # sensor.entity_id = sensor._attr_unique_id or ""
-        # entity_registry = ent_reg.async_get(self.hass)
-        sensor.update_main_value(initValue)
-        sensor._attr_entity_registry_enabled_default = True  # pylint: disable=protected-access
-        self.hass.async_add_job(self._platform.async_add_entities([sensor]))
+        sensor.set_main_value(initValue)
+
+    def add_entity(
+        self,
+        path: str,
+        config: EntityDefinition,
+    ):
+        """Add an entity to this device."""
+        _LOGGER.info("Creating new dynamic sensor for %s", path)
+        # from ..crescontrol_entity import (  # pylint: disable=import-outside-toplevel
+        #     CresControlEntity,
+        # )
+
+        entity: homeassistant.components.crescience_crescontrol.crescontrol_entity.CresControlEntity
+        if config["type"] == Platform.BUTTON:
+            entity = homeassistant.components.crescience_crescontrol.button.CresControlButton(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.BINARY_SENSOR:
+            entity = homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.DATE:
+            entity = (
+                homeassistant.components.crescience_crescontrol.date.CresControlDate(
+                    self.hass, self, path, config
+                )
+            )
+        elif config["type"] == Platform.FAN:
+            entity = homeassistant.components.crescience_crescontrol.fan.CresControlFan(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.NUMBER:
+            entity = homeassistant.components.crescience_crescontrol.number.CresControlNumber(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.SELECT:
+            entity = homeassistant.components.crescience_crescontrol.select.CresControlSelect(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.SENSOR:
+            entity = homeassistant.components.crescience_crescontrol.sensor.CresControlSensor(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.SWITCH:
+            entity = homeassistant.components.crescience_crescontrol.switch.CresControlSwitch(
+                self.hass, self, path, config
+            )
+        elif config["type"] == Platform.TEXT:
+            entity = (
+                homeassistant.components.crescience_crescontrol.text.CresControlText(
+                    self.hass, self, path, config
+                )
+            )
+        elif config["type"] == Platform.TIME:
+            entity = (
+                homeassistant.components.crescience_crescontrol.time.CresControlTime(
+                    self.hass, self, path, config
+                )
+            )
+        else:
+            raise NotImplementedError(
+                f"Dynamic entities of type {config['type']} are not implemented."
+            )
+        entity._attr_entity_registry_enabled_default = True  # pylint: disable=protected-access
+        self.hass.async_add_job(self._platform.async_add_entities([entity]))
+        self.dynamicEntities[path] = entity
         # sensor.schedule_update_ha_state()
-        self.dynamicEntities[path] = sensor
+        return entity
 
     @property
     def _platform(self):
@@ -237,12 +286,18 @@ class CresControl(WebsocketClient):
         """Register a new entity, which needs updates."""
         self.entity_update_callbacks.append(cb)
 
-    def set_online_status_entity(self, entity: SensorEntity):
+    def set_online_status_entity(
+        self,
+        entity: homeassistant.components.crescience_crescontrol.sensor.CresControlSensor,
+    ):
         """Set the connection-status entity for this CresControl."""
         self.connection_status_entity = entity
         # self.connection_status_entity.hass = self.hass
 
-    def set_connected_entity(self, entity: BinarySensorEntity):
+    def set_connected_entity(
+        self,
+        entity: homeassistant.components.crescience_crescontrol.binary_sensor.CresControlBinarySensor,
+    ):
         """Set the connected entity for this CresControl."""
         self.connected_entity = entity
         # self.connected_entity.hass = self.hass

@@ -1,17 +1,28 @@
 """Base entity for all crescontrol entities."""
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl, makeEntityId
+
+if TYPE_CHECKING:
+    from .crescience.crescontrol import CresControl
 from .crescontrol_devices import EntityDefinition
 from .helper import path2default_enabled, path2icon, path2nice_name, path2unit
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def makeEntityId(uid: str, path: str):
+    """Generate unique Entity-ID for given device-uid and CresControl path."""
+    return (
+        f"{DOMAIN}.{uid.replace('-', '_')}_p_{path.replace('-', '_').replace(':', '_')}"
+    )
 
 
 class CresControlEntity(Entity):
@@ -31,7 +42,7 @@ class CresControlEntity(Entity):
         """Initialize the crescontrol entity."""
         self._device = device
         self._config = config
-        self._device.register_update(self.update_state)
+        self._device.register_update(self.set_state)
         self._attr_entity_registry_enabled_default = path2default_enabled(path)
         self._attr_native_unit_of_measurement = path2unit(path)
         self._attr_entity_category = config["category"]
@@ -45,8 +56,8 @@ class CresControlEntity(Entity):
         # self.hass = hass
         # if self.enabled and self._config["variant"] == "simple":
         # if self.enabled:
-        #     self.pull(hass)
-        # hass.loop.create_task(self.pull())
+        #     self.update(hass)
+        # hass.loop.create_task(self.update())
 
     # @property
     # def device(self):
@@ -121,11 +132,11 @@ class CresControlEntity(Entity):
                 self._device.message_queue.append(self.path)
         # self.hass.loop.create_task(self._device.send(self.path))
         else:
-            self.pull_custom()
+            self.update_custom()
 
-    def pull_custom(self) -> bool:
+    def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
-        _LOGGER.warning("Custom components cannot pull")
+        _LOGGER.warning("Custom components cannot be updated")
         return False
 
     @property
@@ -136,27 +147,27 @@ class CresControlEntity(Entity):
     # @property
     # def icon(self):
     #     return self._config.get("icon")
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update-Callback for child classes."""
-        _LOGGER.error("No update_main_value function defined for entity %s", self.path)
+        _LOGGER.error("No set_main_value function defined for entity %s", self.path)
         return False
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update-Callback for child classes."""
-        _LOGGER.error("No update function defined for entity %s", self.path)
+        _LOGGER.error("No custom set function defined for entity %s", self.path)
         return False
 
     # @callback
-    def update_state(self, path: str, value: Any):
+    def set_state(self, path: str, value: Any):
         """Update-routine for CresControl entities."""
         # assert self.entity_id is not None
         if path.startswith(self.path):
             try:
                 if self._config["variant"] == "simple":
                     handled = True
-                    self.update_main_value(value)
+                    self.set_main_value(value)
                 else:
-                    handled = self.update_custom(path, value)
+                    handled = self.set_custom(path, value)
             except UpdateError:
                 _LOGGER.exception(
                     "Error while updating %s:%s: %s::%s",

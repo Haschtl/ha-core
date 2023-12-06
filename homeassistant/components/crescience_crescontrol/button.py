@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity
 
@@ -42,7 +41,7 @@ class CresControlButton(CresControlEntity, ButtonEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -50,6 +49,13 @@ class CresControlButton(CresControlEntity, ButtonEntity):
         super().__init__(hass, device, path, config)
         if path == "system:reboot()":
             self._attr_device_class = ButtonDeviceClass.RESTART
+
+    def update(self) -> None:
+        """Button entity cannot update."""
+
+    def update_custom(self) -> bool:
+        """Button entity cannot be updated."""
+        return True
 
     async def async_press(self) -> None:
         """Button press callback."""

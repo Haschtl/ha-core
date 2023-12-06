@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
 from .helper import path2number_device_class, path2number_range
@@ -46,7 +45,7 @@ class CresControlNumber(CresControlEntity, NumberEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -65,7 +64,7 @@ class CresControlNumber(CresControlEntity, NumberEntity):
         """Update the current value."""
         self.send(f"voltage={value}")
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             self._attr_native_value = float(value)
@@ -73,7 +72,7 @@ class CresControlNumber(CresControlEntity, NumberEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def pull_custom(self) -> bool:
+    def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("out-a", "out-b", "out-c", "out-d", "out-e", "out-f"):
             return True
@@ -82,10 +81,10 @@ class CresControlNumber(CresControlEntity, NumberEntity):
             # )
         return False
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path + ":"):
             if path == f"{self.path}:voltage":
-                self.update_main_value(value)
+                self.set_main_value(value)
                 return True
         return False

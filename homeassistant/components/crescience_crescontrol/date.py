@@ -46,7 +46,7 @@ class CresControlDate(CresControlEntity, DateEntity):
     #     """Create new CresControl Date Entity."""
     #     super().__init__(device, path, config)
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             # dateParts = (
@@ -68,11 +68,11 @@ class CresControlDate(CresControlEntity, DateEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path):
             if path == f"{self.path}":
-                self.update_main_value(value)
+                self.set_main_value(value)
                 return True
         return False
 

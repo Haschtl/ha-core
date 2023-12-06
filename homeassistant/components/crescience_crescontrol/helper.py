@@ -43,20 +43,26 @@ def path2number_device_class(path: str):
 #         return EntityCategory.CONFIG
 def path2default_enabled(path: str):
     """Entity default_enabled for given CresControl path."""
-    return path in (
-        "in-a",
-        "in-b",
-        "out-a",
-        "out-b",
-        "out-c",
-        "out-d",
-        "out-e",
-        "out-f",
-        "switch-12v",
-        "switch-24v-a",
-        "switch-24v-b",
-        "fan",
-        "connected",
+    return (
+        path
+        in (
+            "in-a",
+            "in-b",
+            "out-a",
+            "out-b",
+            "out-c",
+            "out-d",
+            "out-e",
+            "out-f",
+            "switch-12v",
+            "switch-24v-a",
+            "switch-24v-b",
+            "fan",
+            "connected",
+            "system:reboot()",
+            "firmware:perform-update()",
+        )
+        or "extension" in path
     )
 
 
@@ -215,3 +221,18 @@ def path2unit(path: str):
     if "rssi" in path:
         return "dB"
     return None
+
+
+def parseBool(value: str):
+    """Parse string to bool."""
+    return value.lower() in [
+        "true",
+        "1",
+        "t",
+        "y",
+        "yes",
+        "yeah",
+        "yup",
+        "certainly",
+        "uh-huh",
+    ]

@@ -15,7 +15,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescience.helper import represents_number
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
@@ -50,7 +49,7 @@ class CresControlSensor(CresControlEntity, SensorEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -63,7 +62,7 @@ class CresControlSensor(CresControlEntity, SensorEntity):
         self._attr_native_unit_of_measurement = path2unit(path)
         # self._attr_icon = path2icon(path)
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             if represents_number(value):
@@ -75,7 +74,7 @@ class CresControlSensor(CresControlEntity, SensorEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def pull_custom(self) -> bool:
+    def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("in-a", "in-b"):
             return True
@@ -84,17 +83,17 @@ class CresControlSensor(CresControlEntity, SensorEntity):
             # )
         return False
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if self.path == "connection_status":
             # self._attr_native_value = "connected"
             return False
         # if path == self.path:
-        #     self.update_main_value(value)
+        #     self.set_main_value(value)
         #     return True
         if path.startswith(self.path + ":"):
             if path == f"{self.path}:voltage":
-                self.update_main_value(value)
+                self.set_main_value(value)
                 return True
             # for sub_path in ("meta", "calib-offset", "calib-factor"):
             #     if path == f"{self.path}:{sub_path}":

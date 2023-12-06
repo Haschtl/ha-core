@@ -1213,7 +1213,7 @@ STATIC_CRESCONTROL_FEATURES: FeatureObject = {
             "sensor_class": None,
         },
         "firmware:perform-update()": {
-            "type": Platform.BUTTON,
+            "type": Platform.UPDATE,
             "variant": "simple",
             "category": EntityCategory.CONFIG,
             "sensor_class": None,

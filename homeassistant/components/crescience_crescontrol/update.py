@@ -16,7 +16,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity
 
@@ -46,7 +45,7 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -60,6 +59,13 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         self._attr_supported_features = (
             UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION
         )
+
+    def update(self) -> None:
+        """Update entity cannot update."""
+
+    def update_custom(self) -> bool:
+        """Update entity cannot update."""
+        return True
 
     async def async_update(self) -> None:
         """Update CresControl firmware."""

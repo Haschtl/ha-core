@@ -15,9 +15,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
+from .helper import parseBool
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -78,15 +78,18 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
         """Turn the entity off."""
         self.send("enabled=false")
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
-            self._attr_is_on = bool(value)
+            if isinstance(value, str):
+                self._attr_is_on = parseBool(value)
+            else:
+                self._attr_is_on = bool(value)
         except Exception as exc:
             raise UpdateError(exc) from exc
         return True
 
-    def pull_custom(self) -> bool:
+    def update_custom(self) -> bool:
         """Request the entity data from the device, if entity-type is custom."""
         if self.path in ("fan"):
             return True
@@ -95,14 +98,14 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
             # )
         return False
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         # if path == self.path:
-        #     self.update_main_value(value)
+        #     self.set_main_value(value)
         #     return True
         if path.startswith(self.path + ":"):
             if path == f"{self.path}:voltage":
-                self.update_main_value(value)
+                self.set_main_value(value)
                 return True
             if path == f"{self.path}:enabled":
                 return True

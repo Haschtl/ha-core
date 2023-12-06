@@ -9,7 +9,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.crescontrol import CresControl
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity, UpdateError
 from .helper import path2select_options
@@ -40,7 +39,7 @@ class CresControlSelect(CresControlEntity, SelectEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        device: CresControl,
+        device,
         path: str,
         config: EntityDefinition,
     ) -> None:
@@ -55,7 +54,7 @@ class CresControlSelect(CresControlEntity, SelectEntity):
         # self._attr_icon = path2icon(path)
         self._attr_options = path2select_options(path)
 
-    def update_main_value(self, value: Any) -> bool:
+    def set_main_value(self, value: Any) -> bool:
         """Update the main value of this entity."""
         try:
             self._attr_current_option = str(value)
@@ -67,10 +66,10 @@ class CresControlSelect(CresControlEntity, SelectEntity):
         """Change the selected option."""
         self.send(f"={option}")
 
-    def update_custom(self, path: str, value: Any) -> bool:
+    def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path):
             if path == f"{self.path}":
-                self.update_main_value(value)
+                self.set_main_value(value)
                 return True
         return False
