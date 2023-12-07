@@ -108,9 +108,12 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
             if path == self.path:
                 self._attr_installed_version = str(value)
                 return True
-            if path == "firmware:update-server":
+            if path == "firmware:update-server" and isinstance(value, str):
                 url = value
-                self._attr_release_url = url
+                if url.startswith("http"):
+                    self._attr_release_url = url
+                else:
+                    self._attr_release_url = "https://" + url
                 # getter = lambda: get_latest_version(url)
                 # latest_version = await self.hass.async_add_executor_job(getter)
                 # # latest_version = get_latest_version(url)
