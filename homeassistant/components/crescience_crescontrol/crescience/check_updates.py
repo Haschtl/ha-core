@@ -11,11 +11,19 @@ _LOGGER = logging.getLogger(__name__)
 pprinter = pprint.PrettyPrinter()
 
 
+class IndexEntry(TypedDict):
+    """Structure of an apache index entry."""
+
+    url: str
+    last_modified: str | None
+
+
 class ApacheDirectory(TypedDict):
     """Structure of an apache directory."""
 
-    files: list[str]
-    folders: list[str]
+    files: list[IndexEntry]
+    folders: list[IndexEntry]
+    dir: list[str]
 
 
 class VersionInfo(TypedDict):
@@ -23,6 +31,7 @@ class VersionInfo(TypedDict):
 
     version: str
     version_dir: str
+    last_modified: str
     real_version: str
     release_data: str
     device: str
@@ -37,42 +46,60 @@ class ApacheDirectoryParser(HTMLParser):
     """HTML Parser for Apache directories."""
 
     _is_link = False
-    folders: list[str] = []
-    files: list[str] = []
+    folders: list[IndexEntry] = []
+    files: list[IndexEntry] = []
+    _added_data: list[str] = []
 
     def __init__(self) -> None:
         """HTML Parser for Apache directories."""
         super().__init__()
+        self._added_data = []
         self.folders = []
         self.files = []
-        self._is_link = False
+        # self._is_link = False
+        self._last_was_file = False
+        self._is_last_modified_data = False
+        # self.last_modified = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         """Extract links to subdirectories and."""
-        self._is_link = tag == "a"
+        # self._is_link = tag == "a"
         for attr in attrs:
             if (
                 attr[0] == "href"
                 and attr[1] is not None
                 and not attr[1].startswith("?")
                 and attr[1] != "/"
-                and attr[1] not in self.folders
+                and attr[1] not in self._added_data
             ):
+                entry: IndexEntry = {"url": attr[1], "last_modified": None}
+                self._added_data.append(attr[1])
                 if attr[1].endswith("/"):
-                    self.folders.append(attr[1])
+                    self._last_was_file = False
+                    self.folders.append(entry)
                 else:
-                    self.files.append(attr[1])
+                    self._last_was_file = True
+                    self.files.append(entry)
+            elif attr[0] == "class" and attr[1] == "indexcollastmod":
+                self._is_last_modified_data = True
 
     @property
     def result(self) -> ApacheDirectory:
         """Return structure of parsed Apache directory."""
-        return {"folders": self.folders, "files": self.files}
+        return {"folders": self.folders, "files": self.files, "dir": self._added_data}
 
     # def handle_endtag(self, tag: str):
     #     print("Encountered an end tag :", tag)
 
-    # def handle_data(self, data):
-    #     print("Encountered some data  :", data)
+    def handle_data(self, data):
+        """Extract last-modified date."""
+        if self._is_last_modified_data:
+            if data not in ("", "Last modified", " ", " "):
+                if self._last_was_file:
+                    self.files[-1]["last_modified"] = data.strip()
+                else:
+                    self.folders[-1]["last_modified"] = data.strip()
+            self._is_last_modified_data = False
 
 
 def parse_apache_index(host: str, url: str, port=443):
@@ -115,16 +142,23 @@ def get_available_versions(
     base_folder = parse_apache_index(url, f"/{device_type}", port)
     available_versions: list[VersionInfo] = []
     for folder in base_folder["folders"]:
-        version_folder = parse_apache_index(url, f"/{device_type}/{folder}", port)
-        if "info.json" in version_folder["files"]:
-            data = get_version_info(f"{url}/{device_type}/{folder}/info.json", port)
-            data["version_dir"] = folder
-            data["real_version"] = folder.replace(
-                "version-", data["version"] + "+"
-            ).replace("/", "")
+        version_folder = parse_apache_index(
+            url, f"/{device_type}/{folder['url']}", port
+        )
+        if "info.json" in version_folder["dir"]:
+            data = get_version_info(
+                f"{url}/{device_type}/{folder['url']}/info.json", port
+            )
+            data["version_dir"] = folder["url"]
+            data["real_version"] = (
+                folder["url"]
+                .replace("version-", data["version"] + "+")
+                .replace("/", "")
+            )
+            data["last_modified"] = folder["last_modified"]
             data[
                 "summary"
-            ] = f"Changelog: {data['change_log']}. Release-Date: {data['release_date']}. Size: {data['size']}"
+            ] = f"Changelog: {data['change_log']}. Release-Date: {data['last_modified']}. Size: {data['size']}"
             available_versions.append(data)
     return available_versions
 
