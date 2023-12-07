@@ -81,11 +81,11 @@ class CresControlSensor(CresControlEntity, SensorEntity):
             return True
         return False
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
-        if self.path == "connection_status":
+        if path == self.path and self.path == "connection_status":
             # self._attr_native_value = "connected"
-            return False
+            return True
         # if path == self.path:
         #     self.set_main_value(value)
         #     return True

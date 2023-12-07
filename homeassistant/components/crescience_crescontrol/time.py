@@ -74,6 +74,6 @@ class CresControlTime(CresControlEntity, TimeEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         return False

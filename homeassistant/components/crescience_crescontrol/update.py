@@ -12,10 +12,11 @@ from homeassistant.components.update import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .crescience.check_updates import get_latest_version
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity
 
@@ -53,8 +54,8 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         super().__init__(hass, device, path, config)
         self._attr_device_class = UpdateDeviceClass.FIRMWARE
         self._attr_auto_update = False
-        self._attr_installed_version = "0.0.0"
-        self._attr_latest_version = "latest"
+        self._attr_installed_version = None
+        self._attr_latest_version = None
         self._attr_release_url = "https://update.cre.science/crescontrol"
         self._attr_title = "CresControl Firmware"
         self._attr_supported_features = (
@@ -71,7 +72,7 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         """Update entity cannot update."""
         self._attr_in_progress = False
         if self.path == "firmware:version":
-            self.send("firmware:version")
+            self.send("firmware:version;firmware:update-server")
         return True
 
     async def async_update(self) -> None:
@@ -87,9 +88,38 @@ class CresControlUpdate(CresControlEntity, UpdateEntity):
         await self.async_send(f"firmware:target-version={version or 'latest'}")
         await self.async_send("firmware:perform-update")
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    def fetch_target_version(self):
+        """Fetch latest available version from Crescience Update server."""
+        if self._attr_release_url is not None:
+            latest_version = get_latest_version(self._attr_release_url)
+            _LOGGER.info(
+                "Checked latest firmware version: %s",
+                latest_version["real_version"],
+            )
+            self._attr_latest_version = latest_version["real_version"]
+            self._attr_release_summary = latest_version["summary"]
+            self.schedule_update_ha_state()
+
+    @callback
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Set installed version."""
-        if path == self.path and self.path == "firmware:version":
-            self._attr_installed_version = str(value)
-            return True
+        if self.path == "firmware:version":
+            if path == self.path:
+                self._attr_installed_version = str(value)
+                return True
+            if path == "firmware:update-server":
+                url = value
+                self._attr_release_url = url
+                # getter = lambda: get_latest_version(url)
+                # latest_version = await self.hass.async_add_executor_job(getter)
+                # # latest_version = get_latest_version(url)
+                # _LOGGER.info(
+                #     "Checked latest firmware version: %s",
+                #     latest_version["real_version"],
+                # )
+                # self._attr_latest_version = latest_version["real_version"]
+                # self._attr_release_summary = latest_version["summary"]
+                # self.schedule_update_ha_state()
+                self.hass.async_add_job(self.fetch_target_version)
+                return False
         return False

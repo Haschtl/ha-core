@@ -89,10 +89,12 @@ class CresControlText(CresControlEntity, TextEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path):
-            if path == f"{self.path}":
+            if path == self.path:
                 self.set_main_value(value)
+                if self.path == "firmware:update-server":
+                    return False
                 return True
         return False

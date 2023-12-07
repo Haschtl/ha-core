@@ -68,7 +68,7 @@ class CresControlDate(CresControlEntity, DateEntity):
             raise UpdateError(exc) from exc
         return True
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path):
             if path == f"{self.path}":

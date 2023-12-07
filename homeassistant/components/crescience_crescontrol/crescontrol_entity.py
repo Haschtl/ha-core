@@ -161,19 +161,19 @@ class CresControlEntity(Entity):
         _LOGGER.error("No set_main_value function defined for entity %s", self.path)
         return False
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update-Callback for child classes."""
         _LOGGER.error("No custom set function defined for entity %s", self.path)
         return False
 
     # @callback
-    def set_state(
+    async def set_state(
         self, path: str | None, value: Any, device_status: ConnectionMessageType | None
     ) -> bool:
         """Update-routine for CresControl entities."""
         # assert self.entity_id is not None
         if path is not None and value is not None:
-            return self._set_state(path, value)
+            return await self._set_state(path, value)
         if device_status is not None:
             return self._handle_device_change(device_status)
         return False
@@ -190,44 +190,45 @@ class CresControlEntity(Entity):
                 )
         return True
 
-    def _set_state(self, path: str, value: Any) -> bool:
+    async def _set_state(self, path: str, value: Any) -> bool:
         """Update-routine for CresControl entities."""
-        if path.startswith(self.path):
+        # if path.startswith(self.path):
+        try:
+            handled = False
+            if path.startswith(self.path) and self._config["variant"] == "simple":
+                handled = True
+                self.set_main_value(value)
+            elif self._config["variant"] == "custom":
+                handled = await self.set_custom(path, value)
+        except UpdateError:
+            _LOGGER.exception(
+                "Error while updating %s:%s: %s::%s",
+                self.uid,
+                self.path,
+                path,
+                value,
+            )
+            handled = True
+        # if not handled:
+        #     _LOGGER.warning(
+        #         "Message was not handled by entity %s: %s:%s",
+        #         self.path,
+        #         path,
+        #         value,
+        #     )
+        if handled and self.enabled:
             try:
-                if self._config["variant"] == "simple":
-                    handled = True
-                    self.set_main_value(value)
-                else:
-                    handled = self.set_custom(path, value)
-            except UpdateError:
+                self.schedule_update_ha_state()
+            except (RuntimeError, AttributeError):
+                # except Exception:
                 _LOGGER.exception(
-                    "Error while updating %s:%s: %s::%s",
-                    self.uid,
-                    self.path,
+                    "Entity %s update_state failed path = %s, value = %s",
+                    self.entity_id,
                     path,
                     value,
                 )
-                handled = True
-            # if not handled:
-            #     _LOGGER.warning(
-            #         "Message was not handled by entity %s: %s:%s",
-            #         self.path,
-            #         path,
-            #         value,
-            #     )
-            if handled and self.enabled:
-                try:
-                    self.schedule_update_ha_state()
-                except (RuntimeError, AttributeError):
-                    # except Exception:
-                    _LOGGER.exception(
-                        "Entity %s update_state failed path = %s, value = %s",
-                        self.entity_id,
-                        path,
-                        value,
-                    )
-            return True
-        return False
+        return handled
+        # return False
 
 
 class UpdateError(Exception):

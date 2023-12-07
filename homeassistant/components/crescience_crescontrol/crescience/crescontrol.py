@@ -1,7 +1,7 @@
 """CresControl object for local connection with home-assistant."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 import logging
 from typing import Any
 
@@ -41,6 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 
 #     def set_main_value(self, value: Any):
 #         """Update main value."""
+IGNORED_DYNAMIC_PATHS = ["firmware:update-server"]
 
 
 class CresControl(WebsocketClient):
@@ -76,7 +77,7 @@ class CresControl(WebsocketClient):
             CresControlEntity,
         ] = {}
         self.entity_update_callbacks: list[
-            Callable[[str | None, Any, ConnectionMessageType | None], bool]
+            Callable[[str | None, Any, ConnectionMessageType | None], Awaitable[bool]]
         ] = []
         self.status_entity_id = domain + ".status_" + uid.replace("-", "_")
 
@@ -89,30 +90,23 @@ class CresControl(WebsocketClient):
     #     self.start(host, 81, False)
 
     # @callback
-    def _received_registered_entity(self, path: str, value: Any) -> bool:
+    async def _received_registered_entity(self, path: str, value: Any) -> bool:
         handled = False
         if len(self.entity_update_callbacks) == 0:
             _LOGGER.error("No entities registered for CresControl")
             return True
         for cb in self.entity_update_callbacks:
             # cb(path, value)
-            handled = cb(path, value, None)
+            handled = await cb(path, value, None)
             if handled:
                 break
         return handled
 
     # @callback
-    def _received_dynamic_entity(self, command: Command, value: Any) -> bool:
+    async def _received_dynamic_entity(self, command: Command, value: Any) -> bool:
         # entity_id = makeEntityId(self.uid, path)
         path = find_feature_path(command, value)
-        if path in self.dynamicEntities:
-            if represents_number(value):
-                self.dynamicEntities[path].set_state(path, float(value), None)
-            else:
-                self.dynamicEntities[path].set_state(path, str(value), None)
-            # self.dynamicEntities[path].set_main_value(value)
-            self.dynamicEntities[path].schedule_update_ha_state()
-        elif path.endswith("get-all"):
+        if path.endswith("get-all"):
             if isinstance(value, list):
                 if len(value) > 0:
                     for feature in value:
@@ -137,6 +131,13 @@ class CresControl(WebsocketClient):
                     "Cannot handle this get-all() message. Return type is wrong: %s",
                     path,
                 )
+        elif path in self.dynamicEntities:
+            if represents_number(value):
+                await self.dynamicEntities[path].set_state(path, float(value), None)
+            else:
+                await self.dynamicEntities[path].set_state(path, str(value), None)
+            # self.dynamicEntities[path].set_main_value(value)
+            self.dynamicEntities[path].schedule_update_ha_state()
 
         else:
             self.add_dynamic_entity(path, value)
@@ -149,12 +150,14 @@ class CresControl(WebsocketClient):
             for idx, command in enumerate(msg.commands):
                 if command.typ in ("parameterGet", "functionCall"):
                     path = ":".join(command.path)
+                    if path == "firmware:update-server":
+                        pass
                     if path not in ("subscription:subscribe"):
-                        handled = self._received_registered_entity(
+                        handled = await self._received_registered_entity(
                             path, msg.returns[idx]
                         )
-                        if not handled:
-                            handled = self._received_dynamic_entity(
+                        if not handled and path not in IGNORED_DYNAMIC_PATHS:
+                            handled = await self._received_dynamic_entity(
                                 command, msg.returns[idx]
                             )
 
@@ -164,7 +167,7 @@ class CresControl(WebsocketClient):
         _LOGGER.warning("Connection with %s closed", self.uid)
         self.set_status("closed")
         for cb in self.entity_update_callbacks:
-            cb(None, None, ConnectionMessageType.CLOSED)
+            await cb(None, None, ConnectionMessageType.CLOSED)
 
     # @callback
     async def on_open(self):
@@ -182,7 +185,7 @@ class CresControl(WebsocketClient):
             self.messageQueue = []
         self.set_status("connected")
         for cb in self.entity_update_callbacks:
-            cb(None, None, ConnectionMessageType.OPEN)
+            await cb(None, None, ConnectionMessageType.OPEN)
 
     # @callback
     async def on_error(self, error, *args):
@@ -190,7 +193,7 @@ class CresControl(WebsocketClient):
         _LOGGER.warning("Connection with %s error", self.uid)
         self.set_status("error")
         for cb in self.entity_update_callbacks:
-            cb(None, None, ConnectionMessageType.ERROR)
+            await cb(None, None, ConnectionMessageType.ERROR)
 
     def update_status(self):
         """Update the status entities."""
@@ -266,8 +269,20 @@ class CresControl(WebsocketClient):
         self.hass.async_add_job(
             self.get_platform(config["type"]).async_add_entities([entity])
         )
+        # job=HassJob(self.get_platform(config["type"]).add_entities([entity]))
+        # self.hass.async_add_hass_job(
+        # job)
+        # entity._attr_
+
+        # getter = lambda: self.get_platform(config["type"]).async_add_entities([entity])
+        # self.hass.loop.call_soon_threadsafe(getter)
+        # await self.hass.async_add_executor_job(
+        #     getter
+        #     # self.get_platform(config["type"]).async_add_entities([entity])
+        # )
+        # self.get_platform(config["type"]).async_add_entities([entity])
+        # entity.async_write_ha_state()
         self.dynamicEntities[path] = entity
-        # sensor.schedule_update_ha_state()
         return entity
 
     def get_platform(self, platform: Platform = Platform.SENSOR):
@@ -280,7 +295,8 @@ class CresControl(WebsocketClient):
 
     # @callback
     def register_update(
-        self, cb: Callable[[str | None, Any, ConnectionMessageType | None], bool]
+        self,
+        cb: Callable[[str | None, Any, ConnectionMessageType | None], Awaitable[bool]],
     ):
         """Register a new entity, which needs updates."""
         self.entity_update_callbacks.append(cb)

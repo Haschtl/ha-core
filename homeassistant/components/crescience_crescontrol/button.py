@@ -4,6 +4,7 @@ Can be:
 - system:reboot
 """
 import logging
+from typing import Any
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -64,6 +65,12 @@ class CresControlButton(CresControlEntity, ButtonEntity):
     def update_custom(self) -> bool:
         """Button entity cannot be updated."""
         return True
+
+    async def set_custom(self, path: str, value: Any) -> bool:
+        """Button entity cannot be updated."""
+        if self.path.startswith("script:"):
+            return False
+        return False
 
     async def async_press(self) -> None:
         """Button press callback."""

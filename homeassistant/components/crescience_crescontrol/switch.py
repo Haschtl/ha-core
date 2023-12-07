@@ -100,18 +100,18 @@ class CresControlSwitch(CresControlEntity, SwitchEntity):
             return True
         return False
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if self.path.startswith("switch-"):
             if path == f"{self.path}:enabled":
                 self.set_main_value(value)
                 return True
         if self.path.startswith("schedule:"):
-            return True
+            return False
         if self.path.startswith("stabilization:bang-bang:"):
-            return True
+            return False
         if self.path.startswith("stabilization:pid:"):
-            return True
+            return False
         return False
 
     def turn_off_custom(self) -> bool:

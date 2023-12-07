@@ -67,9 +67,9 @@ class CresControlBinarySensor(CresControlEntity, BinarySensorEntity):
         """No pulling for custom binary sensors."""
         return False
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
-        if self.path == "connected":
+        if path == "connected" and self.path == "connected":
             # self._attr_native_value = "connected"
             return False
         if path.startswith(self.path):

@@ -87,7 +87,7 @@ class CresControlNumber(CresControlEntity, NumberEntity):
             return True
         return False
 
-    def set_custom(self, path: str, value: Any) -> bool:
+    async def set_custom(self, path: str, value: Any) -> bool:
         """Update entity with type=='custom'."""
         if path.startswith(self.path + ":"):
             if path == f"{self.path}:voltage":
