@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from crescience_websocket_py import ConnectionMessageType
+
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
@@ -11,7 +13,6 @@ from homeassistant.helpers.entity import Entity
 from .const import DOMAIN
 
 if TYPE_CHECKING:
-    from .crescience.client import ConnectionMessageType
     from .crescience.crescontrol import CresControl
 from .crescontrol_devices import EntityDefinition
 from .helper import path2default_enabled, path2icon, path2nice_name, path2unit

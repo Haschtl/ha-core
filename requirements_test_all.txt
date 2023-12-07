@@ -517,6 +517,9 @@ colorthief==0.2.1
 # homeassistant.components.xiaomi_miio
 construct==2.10.68
 
+# homeassistant.components.crescience_crescontrol
+crescience_websocket_py==0.0.3
+
 # homeassistant.components.utility_meter
 croniter==1.0.6
 
@@ -1754,9 +1757,6 @@ renson-endura-delta==1.6.0
 
 # homeassistant.components.reolink
 reolink-aio==0.8.1
-
-# homeassistant.components.crescience_crescontrol
-requests==2.31.0
 
 # homeassistant.components.rflink
 rflink==0.0.65

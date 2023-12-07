@@ -5,6 +5,8 @@ Used to update the CresControl firmware.
 import logging
 from typing import Any
 
+from crescience_websocket_py import get_latest_version
+
 from homeassistant.components.update import (
     UpdateDeviceClass,
     UpdateEntity,
@@ -16,7 +18,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .crescience.check_updates import get_latest_version
 from .crescontrol_devices import STATIC_CRESCONTROL_FEATURES, EntityDefinition
 from .crescontrol_entity import CresControlEntity
 

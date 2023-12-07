@@ -6,6 +6,14 @@ import logging
 from typing import Any
 
 import aiohttp
+from crescience_websocket_py import (
+    Command,
+    ConnectionErrorReason,
+    ConnectionMessageType,
+    ConnectionState,
+    Message,
+    WebsocketClient,
+)
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, Platform
@@ -24,14 +32,7 @@ from ..sensor import CresControlSensor
 from ..switch import CresControlSwitch
 from ..text import CresControlText
 from ..time import CresControlTime
-from .client import (
-    ConnectionErrorReason,
-    ConnectionMessageType,
-    ConnectionState,
-    WebsocketClient,
-)
 from .helper import represents_number
-from .message import Command, Message
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class CresControl(WebsocketClient):
         uid: str,
         tag: str | None,
         callback: Callable[
-            [ConnectionMessageType, str | None, ConnectionErrorReason | None], None
+            [ConnectionMessageType, Message | None, ConnectionErrorReason | None], None
         ]
         | None,
         session: aiohttp.ClientSession | None = None,
